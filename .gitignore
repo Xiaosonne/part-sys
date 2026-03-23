@@ -1,0 +1,128 @@
+# =============================================
+# .NET / C# Build Outputs
+# =============================================
+bin/
+obj/
+out/
+
+# Build results
+*.dll
+*.exe
+*.pdb
+*.xml
+*.pri
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# =============================================
+# IDE / Editor
+# =============================================
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userossc
+*.sln.codeproj
+*.sln.docstates
+ReSharper/
+[Rr]ider[
+DotSettings.user
+
+# VS Code
+.vscode/*
+
+# =============================================
+# Node.js / Frontend (Vue 3 + Vite)
+# =============================================
+inventory-frontend/node_modules/
+inventory-frontend/dist/
+inventory-frontend/.vite/
+inventory-frontend/.output/
+
+# pnpm
+.pnpm/
+.pnpm-store/
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =============================================
+# Logs & Runtime Files
+# =============================================
+*.log
+logs/
+[Ll]og[Ss]/
+[Ll]ogs/
+
+# Process ID (generated at runtime)
+process.pid
+
+# =============================================
+# Environment & Secrets
+# =============================================
+.env
+.env.*
+.env.local
+!.env.example
+
+# Credentials / Secrets
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# =============================================
+# OS Files
+# =============================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =============================================
+# Test Results & Coverage
+# =============================================
+[TestResults]/**
+[TeMP]/**
+.coverage
+coverage/
+*.coverage
+
+# Playwright
+inventory-frontend/test-results/
+inventory-frontend/playwright-report/
+inventory-frontend/playwright/.cache/
+
+# =============================================
+# Temporary / Build Artifacts
+# =============================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# MongoDB data (local)
+data/
+mongodata/
+
+# =============================================
+# Documentation Builds
+# =============================================
+docs/_site/
+docs/.jekyll-cache/
+
+# =============================================
+# Misc
+# =============================================
+*.bak
+*.backup
