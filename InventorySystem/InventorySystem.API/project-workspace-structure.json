@@ -1,0 +1,108 @@
+{
+  "workspaceAreas": [
+    {
+      "id": "docs",
+      "name": "文档区",
+      "type": "folder",
+      "children": []
+    },
+    {
+      "id": "models",
+      "name": "数模区",
+      "type": "folder",
+      "children": []
+    },
+    {
+      "id": "drawings",
+      "name": "图纸区",
+      "type": "folder",
+      "children": [
+        {
+          "id": "sensor_box",
+          "name": "传感器箱图纸区",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "equipment_lubrication",
+          "name": "设备润滑图纸区",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "product_lubrication",
+          "name": "产品润滑图纸区",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "loading_oil_supplement",
+          "name": "加载补油图纸区",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "loading_system",
+          "name": "加载系统图纸区",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "product_connection",
+          "name": "产品连接部分图纸区",
+          "type": "folder",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "parts_config",
+      "name": "二配区",
+      "type": "folder",
+      "children": [
+        {
+          "id": "outsourced",
+          "name": "外协件",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "standard",
+          "name": "标准件",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "mechanical_purchase",
+          "name": "机械外购件",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "electrical_purchase",
+          "name": "电气外购件",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "id": "shipping_docs",
+          "name": "发货单",
+          "type": "folder",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "software",
+      "name": "软件区",
+      "type": "folder",
+      "children": []
+    },
+    {
+      "id": "materials",
+      "name": "资料区",
+      "type": "folder",
+      "children": []
+    }
+  ]
+}
