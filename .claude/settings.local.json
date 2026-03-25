@@ -51,7 +51,11 @@
       "mcp__chrome-mcp__chrome_javascript",
       "mcp__chrome-mcp__chrome_read_page",
       "mcp__chrome-mcp__chrome_screenshot",
-      "mcp__chrome-mcp__chrome_get_web_content"
+      "mcp__chrome-mcp__chrome_get_web_content",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist)"
     ]
   }
 }

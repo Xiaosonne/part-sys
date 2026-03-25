@@ -36,5 +36,10 @@ public class PartCategory
     [BsonRepresentation(BsonType.ObjectId)]
     public string? SpecTemplateId { get; set; }
 
+    /// <summary>
+    /// 规格参数（冗余存储，从模板复制）
+    /// </summary>
+    public List<ParamDef>? SpecParams { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

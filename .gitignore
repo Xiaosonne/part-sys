@@ -126,3 +126,6 @@ docs/.jekyll-cache/
 # =============================================
 *.bak
 *.backup
+scripts/node_modules/
+inventory-frontend/scripts/node_modules/
+inventory-frontend/tests/*txt

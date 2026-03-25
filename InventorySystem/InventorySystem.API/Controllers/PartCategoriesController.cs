@@ -11,8 +11,13 @@ namespace InventorySystem.API.Controllers;
 public class PartCategoriesController : ControllerBase
 {
     private readonly IPartCategoryRepository _repo;
+    private readonly ISpecTemplateRepository _templateRepo;
 
-    public PartCategoriesController(IPartCategoryRepository repo) => _repo = repo;
+    public PartCategoriesController(IPartCategoryRepository repo, ISpecTemplateRepository templateRepo)
+    {
+        _repo = repo;
+        _templateRepo = templateRepo;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await _repo.GetAllAsync());
@@ -47,6 +52,17 @@ public class PartCategoriesController : ControllerBase
     public async Task<IActionResult> Create([FromBody] PartCategory category)
     {
         category.CreatedAt = DateTime.UtcNow;
+
+        // 如果指定了模板，复制规格参数
+        if (!string.IsNullOrEmpty(category.SpecTemplateId))
+        {
+            var template = await _templateRepo.GetByIdAsync(category.SpecTemplateId);
+            if (template != null)
+            {
+                category.SpecParams = template.ParamDefs;
+            }
+        }
+
         await _repo.CreateAsync(category);
         return CreatedAtAction(nameof(GetById), new { id = category.Id }, category);
     }
@@ -57,6 +73,21 @@ public class PartCategoriesController : ControllerBase
     {
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null) return NotFound();
+
+        // 如果模板ID改变，重新复制规格参数
+        if (category.SpecTemplateId != existing.SpecTemplateId)
+        {
+            if (!string.IsNullOrEmpty(category.SpecTemplateId))
+            {
+                var template = await _templateRepo.GetByIdAsync(category.SpecTemplateId);
+                category.SpecParams = template?.ParamDefs;
+            }
+            else
+            {
+                category.SpecParams = null;  // 清空
+            }
+        }
+
         category.Id = id;
         await _repo.UpdateAsync(id, category);
         return Ok(category);

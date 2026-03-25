@@ -11,8 +11,18 @@ namespace InventorySystem.API.Controllers;
 public class SpecTemplatesController : ControllerBase
 {
     private readonly ISpecTemplateRepository _repo;
+    private readonly IPartCategoryRepository _categoryRepo;
+    private readonly ILogger<SpecTemplatesController> _logger;
 
-    public SpecTemplatesController(ISpecTemplateRepository repo) => _repo = repo;
+    public SpecTemplatesController(
+        ISpecTemplateRepository repo,
+        IPartCategoryRepository categoryRepo,
+        ILogger<SpecTemplatesController> logger)
+    {
+        _repo = repo;
+        _categoryRepo = categoryRepo;
+        _logger = logger;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await _repo.GetAllAsync());
@@ -47,6 +57,19 @@ public class SpecTemplatesController : ControllerBase
         if (existing == null) return NotFound();
         template.Id = id;
         await _repo.UpdateAsync(id, template);
+
+        // 级联更新所有引用此模板的分类
+        var affectedCategories = await _categoryRepo.GetBySpecTemplateIdAsync(id);
+        foreach (var cat in affectedCategories)
+        {
+            cat.SpecParams = template.ParamDefs;
+            await _categoryRepo.UpdateAsync(cat.Id, cat);
+        }
+
+        _logger.LogInformation(
+            "Cascaded spec params update to {Count} categories for template {TemplateId}",
+            affectedCategories.Count, id);
+
         return Ok(template);
     }
 

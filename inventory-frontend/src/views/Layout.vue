@@ -10,10 +10,9 @@
     <el-container>
       <el-aside width="200px" style="background-color: #f5f7fa;">
         <el-menu :default-active="activeMenu" router>
-          <el-menu-item v-if="canViewParts" index="/parts">Parts</el-menu-item>
-          <el-menu-item v-if="canViewParts" index="/parts/search">Part Search</el-menu-item>
-          <el-menu-item v-if="canViewParts" index="/spec-templates">Spec Templates</el-menu-item>
-          <el-menu-item v-if="canViewStock" index="/stock">Stock Operations</el-menu-item>
+          <el-menu-item v-if="canViewParts" index="/parts/manage">配件管理</el-menu-item>
+          <el-menu-item v-if="canViewParts" index="/spec-templates">规格模板</el-menu-item>
+          <el-menu-item v-if="canViewStock" index="/stock">库存操作</el-menu-item>
           <el-menu-item index="/transactions">Transactions</el-menu-item>
           <el-menu-item index="/projects">Projects</el-menu-item>
           <el-menu-item index="/selections">Selections</el-menu-item>

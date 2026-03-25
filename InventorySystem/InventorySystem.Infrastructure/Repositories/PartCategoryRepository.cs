@@ -26,4 +26,9 @@ public class PartCategoryRepository : MongoRepository<PartCategory>, IPartCatego
     {
         return await _collection.Find(c => c.Path == path).FirstOrDefaultAsync();
     }
+
+    public async Task<List<PartCategory>> GetBySpecTemplateIdAsync(string specTemplateId)
+    {
+        return await _collection.Find(c => c.SpecTemplateId == specTemplateId).ToListAsync();
+    }
 }
