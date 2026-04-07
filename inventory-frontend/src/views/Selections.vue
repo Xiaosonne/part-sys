@@ -143,41 +143,40 @@
       </el-card>
     </div>
 
-    <!-- Add Item Dialog -->
-    <el-dialog v-model="showItemDialog" title="添加配件" width="500px">
-      <el-form :model="itemForm" label-width="100px">
-        <el-form-item label="配件名称">
-          <el-input v-model="itemForm.partName" placeholder="配件名称" />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-input v-model="itemForm.category" placeholder="分类" />
-        </el-form-item>
-        <el-form-item label="需求数量">
-          <el-input-number v-model="itemForm.requiredQty" :min="1" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showItemDialog = false">取消</el-button>
-        <el-button type="primary" @click="addItem">添加</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Select Part Dialog -->
-    <el-dialog v-model="showPartDialog" title="选择配件" width="700px">
+    <!-- Select Part Dialog (add new OR re-select existing) -->
+    <el-dialog v-model="showPartDialog" :title="currentItem ? '重新选择配件' : '添加配件'" width="700px">
       <div class="part-filter">
-        <el-input v-model="partFilter" placeholder="搜索配件名称/型号" clearable />
+        <el-input v-model="partFilter" placeholder="搜索配件名称/型号/品牌/分类" clearable style="margin-bottom: 10px;" />
       </div>
-      <el-table :data="filteredParts" border stripe max-height="400" @row-click="choosePart">
-        <el-table-column prop="name" label="名称" />
+      <el-table :data="filteredParts" border stripe max-height="300" @row-click="selectPartRow" highlight-current-row>
+        <el-table-column prop="name" label="配件名称" />
         <el-table-column prop="model" label="型号" width="120" />
         <el-table-column prop="brand" label="品牌" width="100" />
+        <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="availableQty" label="可用库存" width="100">
           <template #default="{ row }">
             <span :class="{ 'qty-low': row.availableQty < 5 }">{{ row.availableQty }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="totalQty" label="总库存" width="100" />
       </el-table>
+      <!-- Selected part info (for both add and re-select) -->
+      <div v-if="selectedPartForAdd" class="add-form" style="margin-top: 15px; padding: 15px; background: #f5f7fa; border-radius: 4px;">
+        <div style="font-weight: bold; margin-bottom: 10px;">已选: {{ selectedPartForAdd.name }}
+          <span style="color: #666; font-weight: normal;">{{ selectedPartForAdd.model }} / {{ selectedPartForAdd.brand }} / {{ selectedPartForAdd.category }}</span>
+        </div>
+        <!-- Only show qty for new items -->
+        <el-form :model="itemForm" label-width="100px" v-if="!currentItem">
+          <el-form-item label="需求数量">
+            <el-input-number v-model="itemForm.requiredQty" :min="1" :max="9999" />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="closePartDialog">取消</el-button>
+        <el-button type="primary" @click="confirmPartSelection" :disabled="!selectedPartForAdd">
+          {{ currentItem ? '确认更换' : '添加' }}
+        </el-button>
+      </template>
     </el-dialog>
 
     <!-- Outbound Dialog -->
@@ -230,10 +229,11 @@ const newPlanForm = ref({ name: '', projectId: '' })
 const showItemDialog = ref(false)
 const itemForm = ref({ partName: '', category: '', requiredQty: 1 })
 
-// Part dialog
+// Part dialog (unified add + select)
 const showPartDialog = ref(false)
 const partFilter = ref('')
-const currentItem = ref(null)
+const selectedPartForAdd = ref(null) // 在添加模式时选中的配件
+const currentItem = ref(null) // 在重选模式时，当前被修改的item
 
 // Outbound dialog
 const showOutboundDialog = ref(false)
@@ -248,7 +248,10 @@ const filteredParts = computed(() => {
   if (!partFilter.value) return allParts.value
   const f = partFilter.value.toLowerCase()
   return allParts.value.filter(p =>
-    p.name?.toLowerCase().includes(f) || p.model?.toLowerCase().includes(f)
+    p.name?.toLowerCase().includes(f) ||
+    p.model?.toLowerCase().includes(f) ||
+    p.brand?.toLowerCase().includes(f) ||
+    p.category?.toLowerCase().includes(f)
   )
 })
 
@@ -368,29 +371,62 @@ const deletePlan = async (plan) => {
 
 // Item management
 const showAddItem = () => {
-  itemForm.value = { partName: '', category: '', requiredQty: 1 }
-  showItemDialog.value = true
+  currentItem.value = null
+  selectedPartForAdd.value = null
+  itemForm.value = { requiredQty: 1 }
+  partFilter.value = ''
+  showPartDialog.value = true
+}
+
+const selectPartRow = (part) => {
+  selectedPartForAdd.value = part
+}
+
+const closePartDialog = () => {
+  showPartDialog.value = false
+  selectedPartForAdd.value = null
+  currentItem.value = null
 }
 
 const addItem = () => {
-  if (!itemForm.value.partName || !itemForm.value.requiredQty) {
-    ElMessage.warning('请填写配件名称和数量')
+  if (!selectedPartForAdd.value) {
+    ElMessage.warning('请先选择一个配件')
+    return
+  }
+  if (!itemForm.value.requiredQty || itemForm.value.requiredQty < 1) {
+    ElMessage.warning('请输入正确的需求数量')
     return
   }
   if (!currentPlan.value.items) currentPlan.value.items = []
+  const part = selectedPartForAdd.value
   currentPlan.value.items.push({
     id: 'new_' + Date.now(),
-    partName: itemForm.value.partName,
-    category: itemForm.value.category,
+    selectedPartId: part.id,
+    partName: part.name,
+    category: part.category || '',
     requiredQty: itemForm.value.requiredQty,
     lockedQty: 0,
     outboundQty: 0,
     pendingQty: 0,
-    selectedPartId: '',
     note: ''
   })
-  showItemDialog.value = false
+  closePartDialog()
   saveItems()
+}
+
+const confirmPartSelection = () => {
+  if (!selectedPartForAdd.value) return
+  if (currentItem.value) {
+    // Re-select: update existing item's part
+    currentItem.value.selectedPartId = selectedPartForAdd.value.id
+    currentItem.value.partName = selectedPartForAdd.value.name
+    currentItem.value.category = selectedPartForAdd.value.category || ''
+    closePartDialog()
+    saveItems()
+  } else {
+    // Add new: same as addItem
+    addItem()
+  }
 }
 
 const removeItem = async (index) => {
@@ -410,21 +446,13 @@ const saveItems = async () => {
   }
 }
 
-// Part selection
+// Part selection (re-select existing item's part)
 const selectPart = async (item) => {
   currentItem.value = item
-  // Filter by category
+  selectedPartForAdd.value = null
+  itemForm.value = { requiredQty: item.requiredQty || 1 }
   partFilter.value = ''
   showPartDialog.value = true
-}
-
-const choosePart = (part) => {
-  if (!currentItem.value) return
-  currentItem.value.selectedPartId = part.id
-  currentItem.value.partName = part.name
-  currentItem.value.category = part.category
-  showPartDialog.value = false
-  saveItems()
 }
 
 // Outbound
