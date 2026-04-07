@@ -12,11 +12,13 @@ public class PurchaseTasksController : ControllerBase
 {
     private readonly IPurchaseTaskRepository _repo;
     private readonly IStockService _stockService;
+    private readonly ISelectionPlanRepository _planRepo;
 
-    public PurchaseTasksController(IPurchaseTaskRepository repo, IStockService stockService)
+    public PurchaseTasksController(IPurchaseTaskRepository repo, IStockService stockService, ISelectionPlanRepository planRepo)
     {
         _repo = repo;
         _stockService = stockService;
+        _planRepo = planRepo;
     }
 
     /// <summary>
@@ -98,6 +100,21 @@ public class PurchaseTasksController : ControllerBase
             task.RequiredQty,
             userId,
             $"采购入库: {task.PartName} x{task.RequiredQty}");
+
+        // 更新选型单配件的待采购数量为 0
+        if (!string.IsNullOrEmpty(task.SelectionPlanId) && !string.IsNullOrEmpty(task.SelectionItemId))
+        {
+            var plan = await _planRepo.GetByIdAsync(task.SelectionPlanId);
+            if (plan != null)
+            {
+                var item = plan.Items.FirstOrDefault(i => i.Id == task.SelectionItemId);
+                if (item != null)
+                {
+                    item.PendingQty = 0;
+                    await _planRepo.UpdateAsync(plan.Id, plan);
+                }
+            }
+        }
 
         task.Status = PurchaseTaskStatus.Received;
         task.UpdatedAt = DateTime.UtcNow;
