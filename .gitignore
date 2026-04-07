@@ -129,3 +129,4 @@ docs/.jekyll-cache/
 scripts/node_modules/
 inventory-frontend/scripts/node_modules/
 inventory-frontend/tests/*txt
+.gstack/
