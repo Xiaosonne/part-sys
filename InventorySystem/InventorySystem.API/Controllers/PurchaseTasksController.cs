@@ -11,10 +11,12 @@ namespace InventorySystem.API.Controllers;
 public class PurchaseTasksController : ControllerBase
 {
     private readonly IPurchaseTaskRepository _repo;
+    private readonly IStockService _stockService;
 
-    public PurchaseTasksController(IPurchaseTaskRepository repo)
+    public PurchaseTasksController(IPurchaseTaskRepository repo, IStockService stockService)
     {
         _repo = repo;
+        _stockService = stockService;
     }
 
     /// <summary>
@@ -77,7 +79,7 @@ public class PurchaseTasksController : ControllerBase
     }
 
     /// <summary>
-    /// 采购到货 - 状态从 InProgress 设置为 Received
+    /// 采购到货 - 状态从 InProgress 设置为 Received，同时执行入库操作
     /// </summary>
     [HttpPost("{id}/receive")]
     public async Task<IActionResult> Receive(string id, [FromBody] ReceiveRequest? request = null)
@@ -89,6 +91,14 @@ public class PurchaseTasksController : ControllerBase
             return BadRequest(new { message = $"当前状态为{task.Status}，无法标记为已收货" });
 
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        // 执行入库操作：采购到货数量增加库存
+        await _stockService.InboundAsync(
+            task.PartId,
+            task.RequiredQty,
+            userId,
+            $"采购入库: {task.PartName} x{task.RequiredQty}");
+
         task.Status = PurchaseTaskStatus.Received;
         task.UpdatedAt = DateTime.UtcNow;
         task.UpdatedBy = userId;
