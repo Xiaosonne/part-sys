@@ -15,22 +15,11 @@
             导出
           </el-button>
         </div>
-        <el-input
-          v-model="searchText"
-          placeholder="搜索流程..."
-          clearable
-          size="small"
-          style="margin-top: 8px;"
-        />
+        <el-input v-model="searchText" placeholder="搜索流程..." clearable size="small" style="margin-top: 8px;" />
       </div>
       <div class="definition-list">
-        <div
-          v-for="def in filteredDefinitions"
-          :key="def.id"
-          class="definition-item"
-          :class="{ active: selectedDefinition?.id === def.id }"
-          @click="selectDefinition(def)"
-        >
+        <div v-for="def in filteredDefinitions" :key="def.id" class="definition-item"
+          :class="{ active: selectedDefinition?.id === def.id }" @click="selectDefinition(def)">
           <div class="def-name">{{ def.name }}</div>
           <div class="def-category">{{ def.category || '未分类' }}</div>
         </div>
@@ -77,15 +66,21 @@
               <h4>节点类型</h4>
               <div class="node-types">
                 <div class="node-item" draggable="true" @dragstart="dragStart('SingleApproval')">
-                  <el-icon><User /></el-icon>
+                  <el-icon>
+                    <User />
+                  </el-icon>
                   <span>单人审批</span>
                 </div>
                 <div class="node-item" draggable="true" @dragstart="dragStart('MultiApprovalAnd')">
-                  <el-icon><DocumentCopy /></el-icon>
+                  <el-icon>
+                    <DocumentCopy />
+                  </el-icon>
                   <span>多人会签</span>
                 </div>
                 <div class="node-item" draggable="true" @dragstart="dragStart('MultiApprovalOr')">
-                  <el-icon><UserFilled /></el-icon>
+                  <el-icon>
+                    <UserFilled />
+                  </el-icon>
                   <span>多人或签</span>
                 </div>
               </div>
@@ -101,18 +96,13 @@
                     <polygon points="0 0, 10 3, 0 6" fill="#666" />
                   </marker>
                 </defs>
-                <line v-for="line in getLines()" :key="`${line.from}-${line.to}`" :x1="line.x1" :y1="line.y1" :x2="line.x2" :y2="line.y2" stroke="#666" stroke-width="2" marker-end="url(#arrowhead-designer)" />
+                <line v-for="line in getLines()" :key="`${line.from}-${line.to}`" :x1="line.x1" :y1="line.y1"
+                  :x2="line.x2" :y2="line.y2" stroke="#666" stroke-width="2" marker-end="url(#arrowhead-designer)" />
               </svg>
               <div class="nodes-container">
-                <div
-                  v-for="node in designerNodes"
-                  :key="node.id"
-                  class="node"
-                  :style="{ left: node.x + 'px', top: node.y + 'px' }"
-                  @click="selectNode(node)"
-                  @mousedown="startNodeDrag($event, node)"
-                  :class="{ selected: selectedNode?.id === node.id }"
-                >
+                <div v-for="node in designerNodes" :key="node.id" class="node"
+                  :style="{ left: node.x + 'px', top: node.y + 'px' }" @click="selectNode(node)"
+                  @mousedown="startNodeDrag($event, node)" :class="{ selected: selectedNode?.id === node.id }">
                   <div class="node-content">
                     <div class="node-type">{{ getNodeTypeLabel(node.nodeType) }}</div>
                     <div class="node-name">{{ node.name }}</div>
@@ -155,12 +145,14 @@
                     <el-option v-for="u in users" :key="u.id" :label="u.username" :value="u.id" />
                   </el-select>
                 </el-form-item>
-                <el-form-item v-if="selectedNode.nodeType !== 'Start' && selectedNode.nodeType !== 'End'" label="超时(分钟)">
+                <el-form-item v-if="selectedNode.nodeType !== 'Start' && selectedNode.nodeType !== 'End'"
+                  label="超时(分钟)">
                   <el-input-number v-model="selectedNode.timeoutMinutes" :min="0" />
                 </el-form-item>
                 <el-form-item v-if="selectedNode.nodeType !== 'End'" label="下一节点">
                   <el-select v-model="selectedNode.nextNodes" multiple placeholder="选择下一节点">
-                    <el-option v-for="n in designerNodes.filter(nd => nd.id !== selectedNode.id)" :key="n.id" :label="n.name" :value="n.id" />
+                    <el-option v-for="n in designerNodes.filter(nd => nd.id !== selectedNode.id)" :key="n.id"
+                      :label="n.name" :value="n.id" />
                   </el-select>
                 </el-form-item>
 
@@ -174,7 +166,8 @@
                     <div v-for="(field, idx) in selectedNode.formFields" :key="idx" class="field-item">
                       <div style="flex: 1;">
                         <div><strong>{{ field.label }}</strong></div>
-                        <div style="color: #666; font-size: 11px;">类型: {{ field.fieldType }} {{ field.required ? '(必填)' : '(可选)' }}</div>
+                        <div style="color: #666; font-size: 11px;">类型: {{ field.fieldType }} {{ field.required ? '(必填)'
+                          : '(可选)' }}</div>
                       </div>
                       <div style="display: flex; gap: 5px;">
                         <el-button type="primary" link size="small" @click="editFormField(idx)">编辑</el-button>
@@ -234,15 +227,18 @@
         <template v-if="currentField.fieldType === 'projectFile'">
           <el-form-item label="关联项目字段">
             <el-select v-model="currentField.entitySourceKey" placeholder="选择关联的项目字段">
-              <el-option v-for="f in availableProjectFields" :key="f.key" :label="`${f.label} (${f.key})`" :value="f.key" />
+              <el-option v-for="f in availableProjectFields" :key="f.key" :label="`${f.label} (${f.key})`"
+                :value="f.key" />
             </el-select>
           </el-form-item>
           <el-form-item label="允许的文件类型">
-            <el-input v-model="currentField.allowedFileTypesText" type="textarea" rows="2" placeholder="如：.pdf,.docx,.dwg" />
+            <el-input v-model="currentField.allowedFileTypesText" type="textarea" rows="2"
+              placeholder="如：.pdf,.docx,.dwg" />
           </el-form-item>
         </template>
 
-        <el-form-item v-if="currentField.fieldType !== 'project' && currentField.fieldType !== 'projectFile'" label="占位符">
+        <el-form-item v-if="currentField.fieldType !== 'project' && currentField.fieldType !== 'projectFile'"
+          label="占位符">
           <el-input v-model="currentField.placeholder" placeholder="输入框提示文本" />
         </el-form-item>
 

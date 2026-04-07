@@ -1,7 +1,7 @@
 <template>
   <el-container style="height: 100vh;">
-    <el-header style="background-color: #545c64; color: white; display: flex; align-items: stretch;">
-      <div style="font-size: 20px; font-weight: bold; display: flex; align-items: center; padding: 0 40px 0 20px;">选型系统</div>
+    <el-header class="app-header">
+      <div class="header-title">选型系统</div>
       <el-menu :default-active="activeMenu" router mode="horizontal" style="flex: 1; background-color: transparent; border: none; display: flex; align-items: center;">
         <el-menu-item v-if="canViewParts" index="/parts/manage">配件管理</el-menu-item>
         <el-menu-item v-if="canViewParts" index="/spec-templates">规格模板</el-menu-item>
@@ -25,12 +25,12 @@
         </el-dropdown>
         <el-menu-item v-if="canViewUsers" index="/users">用户管理</el-menu-item>
       </el-menu>
-      <div style="display: flex; align-items: center; margin-left: auto; padding: 0 20px;">
-        <span style="margin-right: 20px;">{{ user?.username }} ({{ user?.role === 'admin' ? '管理员' : user?.role === 'warehouse' ? '仓库' : '用户' }})</span>
-        <el-button type="danger" size="small" @click="handleLogout">退出</el-button>
+      <div class="user-info">
+        <span>{{ user?.username }} ({{ user?.role === 'admin' ? '管理员' : user?.role === 'warehouse' ? '仓库' : '用户' }})</span>
+        <el-button class="btn-logout" size="small" @click="handleLogout">退出</el-button>
       </div>
     </el-header>
-    <el-main style="padding: 12px 16px;">
+    <el-main style="padding: 0;">
       <router-view />
     </el-main>
   </el-container>
@@ -68,19 +68,5 @@ const handleWorkflowCommand = (command) => {
 </script>
 
 <style scoped>
-.el-header {
-  padding: 0;
-}
-.workflow-dropdown {
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  color: #fff;
-  cursor: pointer;
-  height: 60px;
-  font-size: 14px;
-}
-.workflow-dropdown:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
+/* Layout styles are in src/assets/styles/global.css */
 </style>

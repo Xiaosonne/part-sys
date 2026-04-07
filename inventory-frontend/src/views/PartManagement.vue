@@ -1,23 +1,21 @@
 <template>
-  <div class="part-management">
-    <el-container style="height: 100%;">
-      <!-- Left Aside - Category Tree -->
-      <el-aside width="280px" style="background-color: #f5f7fa; border-right: 1px solid #e4e7ed; height: 100%;">
-        <CategoryTree
-          ref="categoryTreeRef"
-          :selected-category-id="selectedCategoryId"
-          @select="onCategorySelect"
-          @open-template-manager="goToTemplateManager"
-        />
-      </el-aside>
+  <div class="page-container">
+    <!-- Left: Category Tree -->
+    <div class="page-sidebar">
+      <CategoryTree
+        ref="categoryTreeRef"
+        :selected-category-id="selectedCategoryId"
+        @select="onCategorySelect"
+        @open-template-manager="goToTemplateManager"
+      />
+    </div>
 
-      <!-- Main Content -->
-      <el-main style="padding: 0; display: flex; flex-direction: column; height: 100%;">
-        <!-- Tabs -->
-        <div class="content-tabs">
-          <el-tabs v-model="activeTab" @tab-change="onTabChange">
-            <!-- Part List Tab -->
-            <el-tab-pane label="配件列表" name="parts">
+    <!-- Right: Main Content -->
+    <div class="page-main">
+      <div class="content-tabs">
+        <el-tabs v-model="activeTab" @tab-change="onTabChange">
+          <!-- Part List Tab -->
+          <el-tab-pane label="配件列表" name="parts">
               <PartListPanel
                 ref="partListRef"
                 :category-path="selectedCategoryPath"
@@ -46,9 +44,8 @@
             </el-tab-pane>
           </el-tabs>
         </div>
-      </el-main>
-    </el-container>
-  </div>
+      </div>
+    </div>
 </template>
 
 <script setup>
@@ -182,15 +179,14 @@ onMounted(() => {
 
 <style scoped>
 .part-management {
-  height: 100%;
-}
-
-.el-container {
-  height: 100%;
+  height: calc(100vh - var(--header-height));
 }
 
 .content-tabs {
   flex: 1;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
   padding: 0 20px;
   background-color: #fff;
   overflow: hidden;

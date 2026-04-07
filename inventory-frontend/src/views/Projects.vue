@@ -1,253 +1,199 @@
 <template>
-  <div class="projects-container">
-    <el-container style="height: 100%;">
-      <!-- Left: Project/Folder Tree -->
-      <el-aside width="280px" style="background-color: #f5f7fa; border-right: 1px solid #e4e7ed; height: 100%; overflow: hidden;">
-        <div class="left-panel">
-          <el-input
-            v-model="treeSearch"
-            placeholder="搜索项目/文件夹"
-            prefix-icon="Search"
-            clearable
-            style="margin-bottom: 10px;"
-          />
+  <div class="page-container">
+    <!-- Left: Project/Folder Tree -->
+    <div class="page-sidebar">
+      <div class="left-panel">
+        <el-input v-model="treeSearch" placeholder="搜索项目/文件夹" prefix-icon="Search" clearable
+          style="margin-bottom: 10px;" />
 
-          <el-popover placement="right" :width="300" trigger="click" v-model:visible="showNewNodePopover">
-            <template #reference>
-              <el-button type="primary" size="small" style="width: 100%; margin-bottom: 10px;">+ 新建</el-button>
+        <el-popover placement="right" :width="300" trigger="click" v-model:visible="showNewNodePopover">
+          <template #reference>
+            <el-button type="primary" size="small" style="width: 100%; margin-bottom: 10px;">+ 新建</el-button>
+          </template>
+          <el-form :model="newNodeForm" label-width="80px" size="small">
+            <el-form-item label="类型">
+              <el-select v-model="newNodeForm.type" style="width: 100%;">
+                <el-option label="项目" value="project" />
+                <el-option label="文件夹" value="folder" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="名称">
+              <el-input v-model="newNodeForm.name" placeholder="名称" />
+            </el-form-item>
+            <el-form-item label="父级">
+              <el-select v-model="newNodeForm.parentId" placeholder="根级" clearable style="width: 100%;">
+                <el-option v-for="p in flatProjects" :key="p.id" :label="p.name" :value="p.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" size="small" @click="saveNewNode" style="width: 100%;">创建</el-button>
+            </el-form-item>
+          </el-form>
+        </el-popover>
+
+        <el-scrollbar class="tree-scrollbar">
+          <el-tree ref="treeRef" :data="treeData" :props="{ label: 'name', children: 'children' }"
+            :expand-on-click-node="true" node-key="id" :current-node-key="currentNodeKey"
+            :filter-node-method="filterTreeNode" @node-click="onTreeNodeClick" highlight-current class="project-tree">
+            <template #default="{ node, data }">
+              <span class="tree-node">
+                <span v-if="data.type === 'folder'" class="node-icon">📁</span>
+                <span v-else class="node-icon">📋</span>
+                <span class="node-label">{{ node.label }}</span>
+              </span>
             </template>
-            <el-form :model="newNodeForm" label-width="80px" size="small">
-              <el-form-item label="类型">
-                <el-select v-model="newNodeForm.type" style="width: 100%;">
-                  <el-option label="项目" value="project" />
-                  <el-option label="文件夹" value="folder" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="名称">
-                <el-input v-model="newNodeForm.name" placeholder="名称" />
-              </el-form-item>
-              <el-form-item label="父级">
-                <el-select v-model="newNodeForm.parentId" placeholder="根级" clearable style="width: 100%;">
-                  <el-option v-for="p in flatProjects" :key="p.id" :label="p.name" :value="p.id" />
-                </el-select>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" size="small" @click="saveNewNode" style="width: 100%;">创建</el-button>
-              </el-form-item>
-            </el-form>
-          </el-popover>
+          </el-tree>
+        </el-scrollbar>
+      </div>
+    </div>
 
-          <el-scrollbar class="tree-scrollbar">
-            <el-tree
-              ref="treeRef"
-              :data="treeData"
-              :props="{ label: 'name', children: 'children' }"
-              :expand-on-click-node="true"
-              node-key="id"
-              :current-node-key="currentNodeKey"
-              :filter-node-method="filterTreeNode"
-              @node-click="onTreeNodeClick"
-              highlight-current
-              class="project-tree"
-            >
-              <template #default="{ node, data }">
-                <span class="tree-node">
-                  <span v-if="data.type === 'folder'" class="node-icon">📁</span>
-                  <span v-else class="node-icon">📋</span>
-                  <span class="node-label">{{ node.label }}</span>
-                </span>
+    <!-- Right: Dynamic Content -->
+    <div class="page-main">
+      <el-empty v-if="!selectedNode" description="从左侧选择一个项目或文件夹" style="flex: 1;" />
+
+      <!-- Folder selected -->
+      <div v-else-if="selectedNode.type === 'folder'" class="folder-view"
+        style="flex: 1; overflow-y: auto; padding: 16px;">
+        <div class="view-header">
+          <span class="node-icon">📁</span>
+          <h3>{{ selectedNode.name }}</h3>
+        </div>
+        <div class="action-bar">
+          <el-button type="danger" plain size="small" @click="deleteNode(selectedNode)">删除文件夹</el-button>
+        </div>
+      </div>
+
+      <!-- Project selected -->
+      <div v-else-if="selectedNode.type === 'project'" class="project-view">
+
+        <!-- ====== 文件管理区（上） ====== -->
+        <div class="section files-section">
+          <div class="section-title">
+            <span>📁 文件管理</span>
+            <el-button size="small" type="warning" plain @click="handleReinitialize"
+              :loading="reinitializing">重新初始化工作区</el-button>
+          </div>
+
+          <div class="file-layout">
+            <!-- File tree -->
+            <div class="file-tree-panel">
+              <div class="file-tree-header">文件夹</div>
+              <el-scrollbar style="height: calc(100% - 36px);">
+                <el-tree ref="fileTreeRef" :data="fileTreeData" :props="{ label: 'name', children: 'children' }"
+                  node-key="path" :expand-on-click-node="true" :default-expanded-keys="defaultExpandedFolders"
+                  @node-click="onFileTreeNodeClick" highlight-current class="workspace-tree">
+                  <template #default="{ data }">
+                    <span class="ftree-node">
+                      <span class="ftree-icon">{{ data.isFolder ? '📁' : '📄' }}</span>
+                      <span class="ftree-name">{{ data.displayName || data.name }}</span>
+                    </span>
+                  </template>
+                </el-tree>
+              </el-scrollbar>
+            </div>
+
+            <!-- File content -->
+            <div class="file-content-panel">
+              <!-- Breadcrumb -->
+              <el-breadcrumb separator="/" style="margin-bottom: 12px;">
+                <el-breadcrumb-item v-for="(seg, idx) in pathSegments" :key="idx"
+                  :class="{ 'breadcrumb-clickable': idx < pathSegments.length - 1 }" @click="navigateToPath(idx)">{{ seg
+                    ||
+                    '根目录' }}</el-breadcrumb-item>
+              </el-breadcrumb>
+
+              <!-- File toolbar -->
+              <div class="file-toolbar">
+                <el-upload ref="uploadRef" action="#" :auto-upload="false" :show-file-list="false"
+                  @change="handleFileSelect" style="display: inline-block;">
+                  <el-button size="small" type="primary">上传文件</el-button>
+                </el-upload>
+                <el-button size="small" @click="showCreateFolderDialog = true">新建文件夹</el-button>
+                <span v-if="selectedFile" class="selected-file-name">{{ selectedFile.name || selectedFile }}</span>
+                <el-button v-if="selectedFile" size="small" type="primary" :loading="uploading"
+                  @click="doUpload">确认上传</el-button>
+              </div>
+
+              <!-- File list -->
+              <el-table :data="fileItems" border stripe size="small"
+                style="margin-top: 10px; height: calc(100% - 90px);" max-height="calc(100% - 90px)">
+                <el-table-column label="名称">
+                  <template #default="{ row }">
+                    <span v-if="row.isFolder" class="file-folder-link" @click="enterFolder(row.name)">📁 {{
+                      row.displayName || row.name }}</span>
+                    <span v-else>📄 {{ row.originalName || row.name }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="size" label="大小" width="100" :formatter="formatSize" />
+                <el-table-column prop="modified" label="修改时间" width="160" :formatter="formatDate" />
+                <el-table-column label="操作" width="120" align="center">
+                  <template #default="{ row }">
+                    <el-button v-if="!row.isFolder" size="small" @click="downloadFile(row)">下载</el-button>
+                    <el-button size="small" type="danger" plain @click="deleteFileItem(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+        </div>
+
+        <el-divider />
+
+        <!-- ====== 选型管理区（下） ====== -->
+        <div class="section selections-section">
+          <div class="section-title">
+            <span>📋 选型管理</span>
+            <el-button size="small" type="primary" plain @click="goToSelections">在选型中心查看 →</el-button>
+          </div>
+
+          <el-table v-if="projectSelections.length > 0" :data="projectSelections" border stripe size="small"
+            style="margin-top: 10px;">
+            <el-table-column prop="name" label="选型单名称" />
+            <el-table-column label="状态" width="90">
+              <template #default="{ row }">
+                <el-tag size="small" :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
               </template>
-            </el-tree>
-          </el-scrollbar>
+            </el-table-column>
+            <el-table-column label="配件项" width="70" align="center">
+              <template #default="{ row }">{{ row.items?.length || 0 }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100" align="center">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" plain @click="openSelection(row)">查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else description="暂无选型单" :image-size="60" />
         </div>
-      </el-aside>
-
-      <!-- Right: Dynamic Content -->
-      <el-main style="padding: 0; display: flex; flex-direction: column; height: 100%; overflow: hidden;">
-        <el-empty v-if="!selectedNode" description="从左侧选择一个项目或文件夹" style="flex: 1;" />
-
-        <!-- Folder selected -->
-        <div v-else-if="selectedNode.type === 'folder'" class="folder-view" style="flex: 1; overflow-y: auto; padding: 16px;">
-          <div class="view-header">
-            <span class="node-icon">📁</span>
-            <h3>{{ selectedNode.name }}</h3>
-          </div>
-          <div class="action-bar">
-            <el-button type="danger" plain size="small" @click="deleteNode(selectedNode)">删除文件夹</el-button>
-          </div>
-        </div>
-
-        <!-- Project selected -->
-        <div v-else-if="selectedNode.type === 'project'" class="project-view">
-
-          <!-- ====== 文件管理区（上） ====== -->
-          <div class="section files-section">
-            <div class="section-title">
-              <span>📁 文件管理</span>
-              <el-button size="small" type="warning" plain @click="handleReinitialize" :loading="reinitializing">重新初始化工作区</el-button>
-            </div>
-
-            <div class="file-layout">
-              <!-- File tree -->
-              <div class="file-tree-panel">
-                <div class="file-tree-header">文件夹</div>
-                <el-scrollbar style="height: calc(100% - 36px);">
-                  <el-tree
-                    ref="fileTreeRef"
-                    :data="fileTreeData"
-                    :props="{ label: 'name', children: 'children' }"
-                    node-key="path"
-                    :expand-on-click-node="true"
-                    :default-expanded-keys="defaultExpandedFolders"
-                    @node-click="onFileTreeNodeClick"
-                    highlight-current
-                    class="workspace-tree"
-                  >
-                    <template #default="{ data }">
-                      <span class="ftree-node">
-                        <span class="ftree-icon">{{ data.isFolder ? '📁' : '📄' }}</span>
-                        <span class="ftree-name">{{ data.displayName || data.name }}</span>
-                      </span>
-                    </template>
-                  </el-tree>
-                </el-scrollbar>
-              </div>
-
-              <!-- File content -->
-              <div class="file-content-panel">
-                <!-- Breadcrumb -->
-                <el-breadcrumb separator="/" style="margin-bottom: 12px;">
-                  <el-breadcrumb-item
-                    v-for="(seg, idx) in pathSegments"
-                    :key="idx"
-                    :class="{ 'breadcrumb-clickable': idx < pathSegments.length - 1 }"
-                    @click="navigateToPath(idx)"
-                  >{{ seg || '根目录' }}</el-breadcrumb-item>
-                </el-breadcrumb>
-
-                <!-- File toolbar -->
-                <div class="file-toolbar">
-                  <el-upload
-                    ref="uploadRef"
-                    action="#"
-                    :auto-upload="false"
-                    :show-file-list="false"
-                    @change="handleFileSelect"
-                    style="display: inline-block;"
-                  >
-                    <el-button size="small" type="primary">上传文件</el-button>
-                  </el-upload>
-                  <el-button size="small" @click="showCreateFolderDialog = true">新建文件夹</el-button>
-                  <span v-if="selectedFile" class="selected-file-name">{{ selectedFile.name || selectedFile }}</span>
-                  <el-button
-                    v-if="selectedFile"
-                    size="small"
-                    type="primary"
-                    :loading="uploading"
-                    @click="doUpload"
-                  >确认上传</el-button>
-                </div>
-
-                <!-- File list -->
-                <el-table
-                  :data="fileItems"
-                  border
-                  stripe
-                  size="small"
-                  style="margin-top: 10px; height: calc(100% - 90px);"
-                  max-height="calc(100% - 90px)"
-                >
-                  <el-table-column label="名称">
-                    <template #default="{ row }">
-                      <span
-                        v-if="row.isFolder"
-                        class="file-folder-link"
-                        @click="enterFolder(row.name)"
-                      >📁 {{ row.displayName || row.name }}</span>
-                      <span v-else>📄 {{ row.originalName || row.name }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="size" label="大小" width="100" :formatter="formatSize" />
-                  <el-table-column prop="modified" label="修改时间" width="160" :formatter="formatDate" />
-                  <el-table-column label="操作" width="120" align="center">
-                    <template #default="{ row }">
-                      <el-button
-                        v-if="!row.isFolder"
-                        size="small"
-                        @click="downloadFile(row)"
-                      >下载</el-button>
-                      <el-button size="small" type="danger" plain @click="deleteFileItem(row)">删除</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </div>
-          </div>
-
-          <el-divider />
-
-          <!-- ====== 选型管理区（下） ====== -->
-          <div class="section selections-section">
-            <div class="section-title">
-              <span>📋 选型管理</span>
-              <el-button size="small" type="primary" plain @click="goToSelections">在选型中心查看 →</el-button>
-            </div>
-
-            <el-table
-              v-if="projectSelections.length > 0"
-              :data="projectSelections"
-              border
-              stripe
-              size="small"
-              style="margin-top: 10px;"
-            >
-              <el-table-column prop="name" label="选型单名称" />
-              <el-table-column label="状态" width="90">
-                <template #default="{ row }">
-                  <el-tag size="small" :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="配件项" width="70" align="center">
-                <template #default="{ row }">{{ row.items?.length || 0 }}</template>
-              </el-table-column>
-              <el-table-column label="操作" width="100" align="center">
-                <template #default="{ row }">
-                  <el-button size="small" type="primary" plain @click="openSelection(row)">查看</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-empty v-else description="暂无选型单" :image-size="60" />
-          </div>
-        </div>
-      </el-main>
-    </el-container>
-
-    <!-- Edit Dialog -->
-    <el-dialog v-model="showEditDialog" :title="'编辑' + (editForm.type === 'folder' ? '文件夹' : '项目')" width="400px">
-      <el-form :model="editForm" label-width="80px" size="small">
-        <el-form-item label="名称">
-          <el-input v-model="editForm.name" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveEdit">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- Create Folder Dialog -->
-    <el-dialog v-model="showCreateFolderDialog" title="新建文件夹" width="360px">
-      <el-form :model="newFolderForm" label-width="80px" size="small">
-        <el-form-item label="文件夹名">
-          <el-input v-model="newFolderForm.name" placeholder="文件夹名称" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showCreateFolderDialog = false">取消</el-button>
-        <el-button type="primary" @click="doCreateFolder">创建</el-button>
-      </template>
-    </el-dialog>
+      </div>
+    </div>
   </div>
+
+  <!-- Edit Dialog -->
+  <el-dialog v-model="showEditDialog" :title="'编辑' + (editForm.type === 'folder' ? '文件夹' : '项目')" width="400px">
+    <el-form :model="editForm" label-width="80px" size="small">
+      <el-form-item label="名称">
+        <el-input v-model="editForm.name" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showEditDialog = false">取消</el-button>
+      <el-button type="primary" @click="saveEdit">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- Create Folder Dialog -->
+  <el-dialog v-model="showCreateFolderDialog" title="新建文件夹" width="360px">
+    <el-form :model="newFolderForm" label-width="80px" size="small">
+      <el-form-item label="文件夹名">
+        <el-input v-model="newFolderForm.name" placeholder="文件夹名称" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showCreateFolderDialog = false">取消</el-button>
+      <el-button type="primary" @click="doCreateFolder">创建</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -584,46 +530,44 @@ const formatDate = (row) => {
 
 <style scoped>
 .projects-container {
-  height: calc(100vh - 60px);
-}
-
-.main-layout {
-  /* no longer used - replaced by el-container */
+  height: calc(100vh - var(--header-height));
 }
 
 .left-panel {
-  width: 280px;
-  min-width: 280px;
-  background: #fff;
-  border-radius: 8px;
+  height: 100%;
+  background: var(--color-bg-sidebar);
   padding: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-.right-panel {
-  /* no longer used - replaced by el-main */
-  flex: 1;
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
+
+
 .tree-scrollbar {
   flex: 1;
   overflow-y: auto;
 }
-.project-tree, .workspace-tree { background: transparent; }
-.tree-node, .ftree-node {
+
+.project-tree,
+.workspace-tree {
+  background: transparent;
+}
+
+.tree-node,
+.ftree-node {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 6px; 
   font-size: 14px;
 }
-.node-icon, .ftree-icon { font-size: 14px; }
-.node-label, .ftree-name {
+
+.node-icon,
+.ftree-icon {
+  font-size: 14px;
+}
+
+.node-label,
+.ftree-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -636,9 +580,15 @@ const formatDate = (row) => {
   gap: 12px;
   margin-bottom: 16px;
 }
-.view-header h3 { margin: 0; }
 
-.section { margin-bottom: 0; }
+.view-header h3 {
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 0;
+}
+
 .section-title {
   display: flex;
   align-items: center;
@@ -649,12 +599,17 @@ const formatDate = (row) => {
   margin-bottom: 12px;
 }
 
-.files-section { flex: 1; overflow: hidden; }
+.files-section {
+  flex: 1;
+  overflow: hidden;
+}
+
 .file-layout {
   display: flex;
   gap: 12px;
   height: 320px;
 }
+
 .file-tree-panel {
   width: 200px;
   min-width: 200px;
@@ -665,6 +620,7 @@ const formatDate = (row) => {
   display: flex;
   flex-direction: column;
 }
+
 .file-tree-header {
   font-size: 12px;
   color: #999;
@@ -672,18 +628,21 @@ const formatDate = (row) => {
   padding-bottom: 6px;
   border-bottom: 1px solid #f0f0f0;
 }
+
 .file-content-panel {
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
+
 .file-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
+
 .selected-file-name {
   font-size: 13px;
   color: #666;
@@ -697,10 +656,21 @@ const formatDate = (row) => {
   cursor: pointer;
   color: #409eff;
 }
-.file-folder-link:hover { text-decoration: underline; }
 
-.breadcrumb-clickable { cursor: pointer; }
-.breadcrumb-clickable:hover { color: #409eff; }
+.file-folder-link:hover {
+  text-decoration: underline;
+}
 
-.action-bar { display: flex; gap: 10px; }
+.breadcrumb-clickable {
+  cursor: pointer;
+}
+
+.breadcrumb-clickable:hover {
+  color: #409eff;
+}
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+}
 </style>

@@ -1,95 +1,112 @@
 <template>
-  <div class="workflow-detail">
-    <el-page-header @back="goBack" content="流程详情" />
-
-    <el-card class="info-card">
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="流程名称">{{ instance.name }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(instance.status)">{{ instance.status }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="发起人">{{ instance.startedByName || instance.startedBy }}</el-descriptions-item>
-        <el-descriptions-item label="发起时间">{{ formatDate(instance.startedAt) }}</el-descriptions-item>
-        <el-descriptions-item label="当前节点">{{ instance.currentNodeName }}</el-descriptions-item>
-        <el-descriptions-item label="完成时间">{{ formatDate(instance.completedAt) }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
-
-    <el-card class="progress-card">
-      <template #header>流程进度</template>
-      <el-steps :active="currentStepIndex" finish-status="success">
-        <el-step v-for="node in nodes" :key="node.id" :title="node.name" />
-      </el-steps>
-    </el-card>
-
-    <el-card class="history-card">
-      <template #header>审批历史</template>
-      <el-timeline v-if="history.length > 0">
-        <el-timeline-item
-          v-for="item in history"
-          :key="item.id"
-          :timestamp="formatDate(item.createdAt)"
-          :type="getActionType(item.action)"
-        >
-          <p><strong>{{ item.nodeName }}</strong> - {{ item.action }}</p>
-          <p>操作人: {{ item.operatorName || item.operatorId }}</p>
-          <p v-if="item.comment">意见: {{ item.comment }}</p>
-          <!-- 显示表单数据 -->
-          <div v-if="item.formData && Object.keys(item.formData).length > 0" style="margin-top: 10px; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
-            <p style="font-weight: bold; margin-bottom: 8px;">提交信息:</p>
-            <div v-for="(value, key) in item.formData" :key="key" style="margin-bottom: 5px;">
-              <span style="color: #666;">{{ key }}: </span>
-              <span style="color: #333;">{{ value }}</span>
-            </div>
-          </div>
-        </el-timeline-item>
-      </el-timeline>
-      <div v-else style="color: #999; padding: 20px; text-align: center;">暂无审批记录</div>
-    </el-card>
-
-    <el-card v-if="relatedEntity" class="project-info-card">
-      <template #header>
-        关联{{ instance.entityType === 'Project' ? '项目' : instance.entityType }}信息
-      </template>
-      <el-descriptions :column="2" border>
-        <el-descriptions-item label="名称">{{ relatedEntity.name }}</el-descriptions-item>
-        <el-descriptions-item label="类型">{{ relatedEntity.type === 'project' ? '项目' : '文件夹' }}</el-descriptions-item>
-        <el-descriptions-item label="编号">{{ relatedEntity.code || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="描述">{{ relatedEntity.description || '-' }}</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
-
-    <el-card v-if="instance.selectedFileIds?.length" class="files-card">
-      <template #header>关联文件 ({{ instance.selectedFileIds.length }})</template>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px;">
-        <div
-          v-for="fileId in instance.selectedFileIds"
-          :key="fileId"
-          style="border: 1px solid #ddd; border-radius: 4px; padding: 12px; cursor: pointer; text-align: center; transition: all 0.3s;"
-          @click="viewFileDetail(fileId)"
-          @mouseenter="$event.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'"
-          @mouseleave="$event.currentTarget.style.boxShadow = 'none'"
-        >
-          <div style="font-size: 24px; margin-bottom: 8px;">{{ getFileIcon(fileMetadataMap[fileId]?.fileName || '') }}</div>
-          <div style="font-size: 12px; color: #666; word-break: break-all; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
-            {{ fileMetadataMap[fileId]?.fileName || fileId }}
-          </div>
+  <div class="page-main">
+    <div style="padding: 20px 24px;">
+      <div class="panel-card" style="margin-bottom: 16px;">
+        <div style="padding: 12px 16px; display: flex; align-items: center; gap: 16px;">
+          <el-page-header @back="goBack" content="流程详情" />
         </div>
       </div>
-    </el-card>
 
-    <!-- 文件详情弹窗 -->
-    <el-dialog v-model="showFileDetailDialog" title="文件详情" width="500px">
-      <el-descriptions v-if="selectedFileDetail" :column="1" border>
-        <el-descriptions-item label="文件名">{{ selectedFileDetail.fileName }}</el-descriptions-item>
-        <el-descriptions-item label="文件大小">{{ formatFileSize(selectedFileDetail.fileSize) }}</el-descriptions-item>
-        <el-descriptions-item label="上传时间">{{ formatDate(selectedFileDetail.uploadedAt) }}</el-descriptions-item>
-        <el-descriptions-item label="上传人">{{ selectedFileDetail.uploadedBy }}</el-descriptions-item>
-      </el-descriptions>
-      <template #footer>
-        <el-button @click="showFileDetailDialog = false">关闭</el-button>
-      </template>
-    </el-dialog>
+      <div class="panel-card" style="margin-bottom: 16px;">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="流程名称">{{ instance.name }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatusType(instance.status)">{{ instance.status }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="发起人">{{ instance.startedByName || instance.startedBy }}</el-descriptions-item>
+          <el-descriptions-item label="发起时间">{{ formatDate(instance.startedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="当前节点">{{ instance.currentNodeName }}</el-descriptions-item>
+          <el-descriptions-item label="完成时间">{{ formatDate(instance.completedAt) }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <div class="panel-card" style="margin-bottom: 16px;">
+        <div
+          style="padding: 12px 16px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--color-border);">
+          流程进度</div>
+        <div style="padding: 16px;">
+          <el-steps :active="currentStepIndex" finish-status="success">
+            <el-step v-for="node in nodes" :key="node.id" :title="node.name" />
+          </el-steps>
+        </div>
+      </div>
+
+      <div class="panel-card" style="margin-bottom: 16px;">
+        <div
+          style="padding: 12px 16px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--color-border);">
+          审批历史</div>
+        <el-timeline v-if="history.length > 0">
+          <el-timeline-item v-for="item in history" :key="item.id" :timestamp="formatDate(item.createdAt)"
+            :type="getActionType(item.action)">
+            <p><strong>{{ item.nodeName }}</strong> - {{ item.action }}</p>
+            <p>操作人: {{ item.operatorName || item.operatorId }}</p>
+            <p v-if="item.comment">意见: {{ item.comment }}</p>
+            <!-- 显示表单数据 -->
+            <div v-if="item.formData && Object.keys(item.formData).length > 0"
+              style="margin-top: 10px; padding: 10px; background-color: #f5f7fa; border-radius: 4px;">
+              <p style="font-weight: bold; margin-bottom: 8px;">提交信息:</p>
+              <div v-for="(value, key) in item.formData" :key="key" style="margin-bottom: 5px;">
+                <span style="color: #666;">{{ key }}: </span>
+                <span style="color: #333;">{{ value }}</span>
+              </div>
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+        <div v-else style="color: var(--color-text-muted); padding: 20px; text-align: center;">暂无审批记录</div>
+      </div>
+
+      <div v-if="relatedEntity" class="panel-card" style="margin-bottom: 16px;">
+        <div
+          style="padding: 12px 16px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--color-border);">
+          关联{{ instance.entityType === 'Project' ? '项目' : instance.entityType }}信息
+        </div>
+        <div style="padding: 16px;">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="名称">{{ relatedEntity.name }}</el-descriptions-item>
+            <el-descriptions-item label="类型">{{ relatedEntity.type === 'project' ? '项目' : '文件夹'
+              }}</el-descriptions-item>
+            <el-descriptions-item label="编号">{{ relatedEntity.code || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="描述">{{ relatedEntity.description || '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </div>
+
+      <div v-if="instance.selectedFileIds?.length" class="panel-card" style="margin-bottom: 16px;">
+        <div
+          style="padding: 12px 16px; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--color-border);">
+          关联文件 ({{ instance.selectedFileIds.length }})
+        </div>
+        <div
+          style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px;">
+          <div v-for="fileId in instance.selectedFileIds" :key="fileId"
+            style="border: 1px solid #ddd; border-radius: 4px; padding: 12px; cursor: pointer; text-align: center; transition: all 0.3s;"
+            @click="viewFileDetail(fileId)"
+            @mouseenter="$event.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'"
+            @mouseleave="$event.currentTarget.style.boxShadow = 'none'">
+            <div style="font-size: 24px; margin-bottom: 8px;">{{ getFileIcon(fileMetadataMap[fileId]?.fileName || '') }}
+            </div>
+            <div
+              style="font-size: 12px; color: #666; word-break: break-all; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+              {{ fileMetadataMap[fileId]?.fileName || fileId }}
+            </div>
+          </div>
+        </div>
+
+        <!-- File Detail Dialog -->
+
+        <el-dialog v-model="showFileDetailDialog" title="文件详情" width="500px">
+          <el-descriptions v-if="selectedFileDetail" :column="1" border>
+            <el-descriptions-item label="文件名">{{ selectedFileDetail.fileName }}</el-descriptions-item>
+            <el-descriptions-item label="文件大小">{{ formatFileSize(selectedFileDetail.fileSize) }}</el-descriptions-item>
+            <el-descriptions-item label="上传时间">{{ formatDate(selectedFileDetail.uploadedAt) }}</el-descriptions-item>
+            <el-descriptions-item label="上传人">{{ selectedFileDetail.uploadedBy }}</el-descriptions-item>
+          </el-descriptions>
+          <template #footer>
+            <el-button @click="showFileDetailDialog = false">关闭</el-button>
+          </template>
+        </el-dialog>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -223,16 +240,4 @@ const viewFileDetail = (fileId) => {
 }
 </script>
 
-<style scoped>
-.workflow-detail {
-  padding: 20px;
-}
-
-.info-card,
-.progress-card,
-.history-card,
-.project-info-card,
-.files-card {
-  margin-bottom: 20px;
-}
-</style>
+<style scoped></style>

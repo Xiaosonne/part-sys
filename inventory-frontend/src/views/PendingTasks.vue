@@ -1,211 +1,182 @@
 <template>
-  <div class="pending-tasks">
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>审批任务</span>
-          <el-button @click="refreshTasks">刷新</el-button>
+  <div class="page-main">
+    <div style="padding: 20px 24px;">
+      <div class="panel-card">
+        <div
+          style="padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-border);">
+          <span style="font-size: 14px; font-weight: 600;">审批任务</span>
+          <el-button size="small" @click="refreshTasks">刷新</el-button>
         </div>
-      </template>
-
-      <el-tabs v-model="activeTab" class="task-tabs" align="center" @tab-change="handleTabChange">
-        <!-- 待审批 Tab -->
-        <el-tab-pane label="待审批" name="pending">
-          <div class="tab-toolbar">
-            <el-select v-model="pendingFilter" placeholder="筛选" clearable size="default" style="width: 150px;">
-              <el-option label="全部节点" value="" />
-              <el-option label="第一级审批" value="第一级审批" />
-              <el-option label="第二级审批" value="第二级审批" />
-            </el-select>
-            <span class="task-count">共 {{ filteredPendingTasks.length }} 条</span>
-          </div>
-          <el-table :data="paginatedPendingTasks" stripe style="width: 100%;" v-loading="loading">
-            <el-table-column prop="instanceName" label="流程名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="nodeName" label="审批节点" min-width="120" />
-            <el-table-column label="发起人" min-width="100">
-              <template #default="{ row }">
-                {{ row.startedByName || row.startedBy }}
-              </template>
-            </el-table-column>
-            <el-table-column label="审批人" min-width="100">
-              <template #default="{ row }">
-                {{ row.assigneeName || row.assigneeId }}
-              </template>
-            </el-table-column>
-            <el-table-column label="创建时间" min-width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.createdAt) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="截止时间" min-width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.dueDate) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" @click="viewDetail(row)">查看</el-button>
-                <el-button link type="success" @click="openApprovalDialog(row)">通过</el-button>
-                <el-button link type="danger" @click="openRejectDialog(row)">拒绝</el-button>
-              </template>
-            </el-table-column>
-            <template #empty>
-              <div style="padding: 40px; color: #999;">
-                暂无待审批任务
+        <div style="padding: 0 16px;">
+          <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+            <!-- 待审批 Tab -->
+            <el-tab-pane label="待审批" name="pending">
+              <div class="tab-toolbar">
+                <el-select v-model="pendingFilter" placeholder="筛选" clearable size="default" style="width: 150px;">
+                  <el-option label="全部节点" value="" />
+                  <el-option label="第一级审批" value="第一级审批" />
+                  <el-option label="第二级审批" value="第二级审批" />
+                </el-select>
+                <span class="task-count">共 {{ filteredPendingTasks.length }} 条</span>
               </div>
-            </template>
-          </el-table>
-          <div class="pagination-container">
-            <el-pagination
-              v-model:current-page="pendingCurrentPage"
-              v-model:page-size="pendingPageSize"
-              :page-sizes="[5, 10, 20, 50]"
-              :total="filteredPendingTasks.length"
-              layout="total, sizes, prev, pager, next, jumper"
-              background
-            />
-          </div>
-        </el-tab-pane>
-
-        <!-- 历史记录 Tab -->
-        <el-tab-pane label="历史记录" name="history">
-          <div class="tab-toolbar">
-            <el-select v-model="historyFilter" placeholder="筛选状态" clearable size="default" style="width: 150px;">
-              <el-option label="全部" value="" />
-              <el-option label="已通过" value="Approved" />
-              <el-option label="已拒绝" value="Rejected" />
-            </el-select>
-            <span class="task-count">共 {{ filteredHistoryTasks.length }} 条</span>
-          </div>
-          <el-table :data="paginatedHistoryTasks" stripe style="width: 100%;" v-loading="historyLoading">
-            <el-table-column prop="instanceName" label="流程名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="nodeName" label="审批节点" min-width="120" />
-            <el-table-column label="发起人" min-width="100">
-              <template #default="{ row }">
-                {{ row.startedByName || row.startedBy }}
-              </template>
-            </el-table-column>
-            <el-table-column label="审批人" min-width="100">
-              <template #default="{ row }">
-                {{ row.assigneeName || row.assigneeId }}
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.status === 'Approved' ? 'success' : 'danger'">
-                  {{ row.status === 'Approved' ? '已通过' : '已拒绝' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="完成时间" min-width="160">
-              <template #default="{ row }">
-                {{ formatDate(row.completedAt) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="审批意见" min-width="150" show-overflow-tooltip>
-              <template #default="{ row }">
-                {{ row.comment || '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="100" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="primary" @click="viewDetail(row)">查看</el-button>
-              </template>
-            </el-table-column>
-            <template #empty>
-              <div style="padding: 40px; color: #999;">
-                暂无历史记录
+              <el-table :data="paginatedPendingTasks" stripe style="width: 100%;" v-loading="loading">
+                <el-table-column prop="instanceName" label="流程名称" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="nodeName" label="审批节点" min-width="120" />
+                <el-table-column label="发起人" min-width="100">
+                  <template #default="{ row }">
+                    {{ row.startedByName || row.startedBy }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="审批人" min-width="100">
+                  <template #default="{ row }">
+                    {{ row.assigneeName || row.assigneeId }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="创建时间" min-width="160">
+                  <template #default="{ row }">
+                    {{ formatDate(row.createdAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="截止时间" min-width="160">
+                  <template #default="{ row }">
+                    {{ formatDate(row.dueDate) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="180" fixed="right">
+                  <template #default="{ row }">
+                    <el-button link type="primary" @click="viewDetail(row)">查看</el-button>
+                    <el-button link type="success" @click="openApprovalDialog(row)">通过</el-button>
+                    <el-button link type="danger" @click="openRejectDialog(row)">拒绝</el-button>
+                  </template>
+                </el-table-column>
+                <template #empty>
+                  <div style="padding: 40px; color: #999;">
+                    暂无待审批任务
+                  </div>
+                </template>
+              </el-table>
+              <div class="pagination-container">
+                <el-pagination v-model:current-page="pendingCurrentPage" v-model:page-size="pendingPageSize"
+                  :page-sizes="[5, 10, 20, 50]" :total="filteredPendingTasks.length"
+                  layout="total, sizes, prev, pager, next, jumper" background />
               </div>
-            </template>
-          </el-table>
-          <div class="pagination-container">
-            <el-pagination
-              v-model:current-page="historyCurrentPage"
-              v-model:page-size="historyPageSize"
-              :page-sizes="[5, 10, 20, 50]"
-              :total="filteredHistoryTasks.length"
-              layout="total, sizes, prev, pager, next, jumper"
-              background
-            />
+            </el-tab-pane>
+
+            <!-- 历史记录 Tab -->
+            <el-tab-pane label="历史记录" name="history">
+              <div class="tab-toolbar">
+                <el-select v-model="historyFilter" placeholder="筛选状态" clearable size="default" style="width: 150px;">
+                  <el-option label="全部" value="" />
+                  <el-option label="已通过" value="Approved" />
+                  <el-option label="已拒绝" value="Rejected" />
+                </el-select>
+                <span class="task-count">共 {{ filteredHistoryTasks.length }} 条</span>
+              </div>
+              <el-table :data="paginatedHistoryTasks" stripe style="width: 100%;" v-loading="historyLoading">
+                <el-table-column prop="instanceName" label="流程名称" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="nodeName" label="审批节点" min-width="120" />
+                <el-table-column label="发起人" min-width="100">
+                  <template #default="{ row }">
+                    {{ row.startedByName || row.startedBy }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="审批人" min-width="100">
+                  <template #default="{ row }">
+                    {{ row.assigneeName || row.assigneeId }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="状态" width="90">
+                  <template #default="{ row }">
+                    <el-tag :type="row.status === 'Approved' ? 'success' : 'danger'">
+                      {{ row.status === 'Approved' ? '已通过' : '已拒绝' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="完成时间" min-width="160">
+                  <template #default="{ row }">
+                    {{ formatDate(row.completedAt) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="审批意见" min-width="150" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    {{ row.comment || '-' }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="100" fixed="right">
+                  <template #default="{ row }">
+                    <el-button link type="primary" @click="viewDetail(row)">查看</el-button>
+                  </template>
+                </el-table-column>
+                <template #empty>
+                  <div style="padding: 40px; color: #999;">
+                    暂无历史记录
+                  </div>
+                </template>
+              </el-table>
+              <div class="pagination-container">
+                <el-pagination v-model:current-page="historyCurrentPage" v-model:page-size="historyPageSize"
+                  :page-sizes="[5, 10, 20, 50]" :total="filteredHistoryTasks.length"
+                  layout="total, sizes, prev, pager, next, jumper" background />
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+      </div>
+
+      <!-- 审批对话框 -->
+      <el-dialog v-model="showApprovalDialog" title="审批任务" width="800px">
+        <!-- 项目信息 -->
+        <el-descriptions v-if="selectedTask?.instance" :column="2" border style="margin-bottom: 20px;">
+          <el-descriptions-item label="流程名称">{{ selectedTask.instance.name }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatusType(selectedTask.instance.status)">{{ selectedTask.instance.status }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="发起人">{{ selectedTask.instance.startedByName }}</el-descriptions-item>
+          <el-descriptions-item label="发起时间">{{ formatDate(selectedTask.instance.startedAt) }}</el-descriptions-item>
+        </el-descriptions>
+
+        <el-form :model="approvalForm" label-width="100px">
+          <!-- 审批表单字段 -->
+          <div v-if="approvalFormFields.length > 0"
+            style="border-bottom: 1px solid #ddd; padding-bottom: 20px; margin-bottom: 20px;">
+            <div style="font-weight: bold; margin-bottom: 15px;">审批信息</div>
+            <el-form-item v-for="field in approvalFormFields" :key="field.id" :label="field.label"
+              :required="field.required">
+              <el-input v-if="field.fieldType === 'text' || field.fieldType === 'textarea'"
+                v-model="approvalForm.formData[field.key]" :type="field.fieldType === 'textarea' ? 'textarea' : 'text'"
+                :placeholder="field.placeholder" :rows="field.fieldType === 'textarea' ? 4 : 1" />
+              <el-select v-else-if="field.fieldType === 'select'" v-model="approvalForm.formData[field.key]"
+                :placeholder="field.placeholder">
+                <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
+              </el-select>
+              <el-input-number v-else-if="field.fieldType === 'number'" v-model="approvalForm.formData[field.key]" />
+              <el-checkbox v-else-if="field.fieldType === 'checkbox'" v-model="approvalForm.formData[field.key]" />
+            </el-form-item>
           </div>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
 
-    <!-- 审批对话框 -->
-    <el-dialog v-model="showApprovalDialog" title="审批任务" width="800px">
-      <!-- 项目信息 -->
-      <el-descriptions v-if="selectedTask?.instance" :column="2" border style="margin-bottom: 20px;">
-        <el-descriptions-item label="流程名称">{{ selectedTask.instance.name }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(selectedTask.instance.status)">{{ selectedTask.instance.status }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="发起人">{{ selectedTask.instance.startedByName }}</el-descriptions-item>
-        <el-descriptions-item label="发起时间">{{ formatDate(selectedTask.instance.startedAt) }}</el-descriptions-item>
-      </el-descriptions>
-
-      <el-form :model="approvalForm" label-width="100px">
-        <!-- 审批表单字段 -->
-        <div v-if="approvalFormFields.length > 0" style="border-bottom: 1px solid #ddd; padding-bottom: 20px; margin-bottom: 20px;">
-          <div style="font-weight: bold; margin-bottom: 15px;">审批信息</div>
-          <el-form-item
-            v-for="field in approvalFormFields"
-            :key="field.id"
-            :label="field.label"
-            :required="field.required"
-          >
-            <el-input
-              v-if="field.fieldType === 'text' || field.fieldType === 'textarea'"
-              v-model="approvalForm.formData[field.key]"
-              :type="field.fieldType === 'textarea' ? 'textarea' : 'text'"
-              :placeholder="field.placeholder"
-              :rows="field.fieldType === 'textarea' ? 4 : 1"
-            />
-            <el-select
-              v-else-if="field.fieldType === 'select'"
-              v-model="approvalForm.formData[field.key]"
-              :placeholder="field.placeholder"
-            >
-              <el-option
-                v-for="option in field.options"
-                :key="option"
-                :label="option"
-                :value="option"
-              />
-            </el-select>
-            <el-input-number
-              v-else-if="field.fieldType === 'number'"
-              v-model="approvalForm.formData[field.key]"
-            />
-            <el-checkbox
-              v-else-if="field.fieldType === 'checkbox'"
-              v-model="approvalForm.formData[field.key]"
-            />
+          <el-form-item label="审批意见">
+            <el-input v-model="approvalForm.comment" type="textarea" rows="4" />
           </el-form-item>
-        </div>
+        </el-form>
+        <template #footer>
+          <el-button @click="showApprovalDialog = false">取消</el-button>
+          <el-button type="primary" @click="submitApproval">通过</el-button>
+        </template>
+      </el-dialog>
 
-        <el-form-item label="审批意见">
-          <el-input v-model="approvalForm.comment" type="textarea" rows="4" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showApprovalDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitApproval">通过</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 拒绝对话框 -->
-    <el-dialog v-model="showRejectDialog" title="拒绝任务" width="600px">
-      <el-form :model="rejectForm" label-width="100px">
-        <el-form-item label="拒绝原因">
-          <el-input v-model="rejectForm.comment" type="textarea" rows="4" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showRejectDialog = false">取消</el-button>
-        <el-button type="danger" @click="submitReject">拒绝</el-button>
-      </template>
-    </el-dialog>
+      <!-- 拒绝对话框 -->
+      <el-dialog v-model="showRejectDialog" title="拒绝任务" width="600px">
+        <el-form :model="rejectForm" label-width="100px">
+          <el-form-item label="拒绝原因">
+            <el-input v-model="rejectForm.comment" type="textarea" rows="4" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showRejectDialog = false">取消</el-button>
+          <el-button type="danger" @click="submitReject">拒绝</el-button>
+        </template>
+      </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -375,20 +346,6 @@ const getStatusType = (status) => {
 </script>
 
 <style scoped>
-.pending-tasks {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.task-tabs {
-  width: 100%;
-}
-
 .tab-toolbar {
   display: flex;
   align-items: center;
@@ -397,7 +354,7 @@ const getStatusType = (status) => {
 }
 
 .task-count {
-  color: #909399;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -408,10 +365,10 @@ const getStatusType = (status) => {
 }
 
 :deep(.el-tabs__item) {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 :deep(.el-tabs__content) {
-  padding-top: 20px;
+  padding-top: 16px;
 }
 </style>

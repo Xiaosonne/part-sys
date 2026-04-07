@@ -1,71 +1,73 @@
 <template>
-  <div class="workflow-container">
-    <!-- 顶部工具栏 -->
-    <div class="toolbar">
-      <el-button type="primary" @click="openStartDialog">
-        <el-icon><Plus /></el-icon>
-        发起新流程
-      </el-button>
-      <el-button @click="loadInstances">
-        <el-icon><Refresh /></el-icon>
-        刷新
-      </el-button>
-    </div>
+  <div class="page-main">
+    <div style="padding: 20px 24px;">
+      <!-- Toolbar -->
+      <div class="panel-card" style="margin-bottom: 16px;">
+        <div style="padding: 12px 16px; display: flex; align-items: center; gap: 12px;">
+          <el-button type="primary" size="small" @click="openStartDialog">
+            <el-icon>
+              <Plus />
+            </el-icon>
+            发起新流程
+          </el-button>
+          <el-button size="small" @click="loadInstances">
+            <el-icon>
+              <Refresh />
+            </el-icon>
+            刷新
+          </el-button>
+        </div>
+      </div>
 
-    <!-- 流程表格 -->
-    <div class="table-container">
-      <el-table :data="instances" stripe v-loading="loading" @row-click="handleRowClick" style="width: 100%; max-width: 100%;">
-        <el-table-column prop="name" label="流程名称" min-width="150" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)">{{ row.status }}</el-tag>
+      <!-- Table -->
+      <div class="panel-card">
+        <el-table :data="instances" stripe v-loading="loading" @row-click="handleRowClick" style="width: 100%;">
+          <el-table-column prop="name" label="流程名称" min-width="150" show-overflow-tooltip />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="发起人" min-width="100" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.startedByName || row.startedBy }}
+            </template>
+          </el-table-column>
+          <el-table-column label="当前节点" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.currentNodeName || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="发起时间" min-width="160">
+            <template #default="{ row }">
+              {{ formatDate(row.startedAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="完成时间" min-width="160">
+            <template #default="{ row }">
+              {{ formatDate(row.completedAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click.stop="openDetail(row)">详情</el-button>
+              <el-button link type="danger" v-if="row.status === 'Running'"
+                @click.stop="cancelInstance(row)">取消</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty description="暂无流程记录" />
           </template>
-        </el-table-column>
-        <el-table-column label="发起人" min-width="100" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.startedByName || row.startedBy }}
-          </template>
-        </el-table-column>
-        <el-table-column label="当前节点" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.currentNodeName || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="发起时间" min-width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.startedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="完成时间" min-width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.completedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click.stop="openDetail(row)">详情</el-button>
-            <el-button link type="danger" v-if="row.status === 'Running'" @click.stop="cancelInstance(row)">取消</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty description="暂无流程记录" />
-        </template>
-      </el-table>
-      <!-- 分页 -->
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+        </el-table>
+        <div style="padding: 12px 16px; display: flex; justify-content: flex-end;">
+          <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]"
+            :total="total" layout="total, sizes, prev, pager, next, jumper" @size-change="handleSizeChange"
+            @current-change="handleCurrentChange" />
+        </div>
       </div>
     </div>
 
-    <!-- 发起新流程对话框 -->
+    <!-- Start Dialog -->
     <el-dialog v-model="showStartDialog" title="发起新流程" width="700px" destroy-on-close>
       <div class="start-dialog-content">
         <!-- 左侧：流程定义列表 -->
@@ -73,13 +75,8 @@
           <h4>选择流程模板</h4>
           <el-input v-model="searchText" placeholder="搜索流程..." clearable size="small" />
           <div class="definition-list">
-            <div
-              v-for="def in filteredDefinitions"
-              :key="def.id"
-              class="definition-item"
-              :class="{ active: selectedDefinition?.id === def.id }"
-              @click="selectDefinition(def)"
-            >
+            <div v-for="def in filteredDefinitions" :key="def.id" class="definition-item"
+              :class="{ active: selectedDefinition?.id === def.id }" @click="selectDefinition(def)">
               <div class="def-name">{{ def.name }}</div>
               <div class="def-category">{{ def.category || '未分类' }}</div>
             </div>
@@ -95,91 +92,44 @@
             </el-form-item>
 
             <!-- 项目选择字段 -->
-            <el-form-item
-              v-for="field in projectFields"
-              :key="field.key"
-              :label="field.label"
-              :required="field.required"
-            >
-              <el-select
-                v-model="startForm.extraData[field.key]"
-                :placeholder="`选择${field.label}`"
-                @change="(val) => onProjectChange(field.key, val)"
-              >
-                <el-option
-                  v-for="project in projectList"
-                  :key="project.id"
-                  :label="project.name"
-                  :value="project.id"
-                />
+            <el-form-item v-for="field in projectFields" :key="field.key" :label="field.label"
+              :required="field.required">
+              <el-select v-model="startForm.extraData[field.key]" :placeholder="`选择${field.label}`"
+                @change="(val) => onProjectChange(field.key, val)">
+                <el-option v-for="project in projectList" :key="project.id" :label="project.name" :value="project.id" />
               </el-select>
             </el-form-item>
 
             <!-- 项目文件选择字段 -->
-            <el-form-item
-              v-for="field in projectFileFields"
-              :key="field.key"
-              :label="field.label"
-              :required="field.required"
-            >
+            <el-form-item v-for="field in projectFileFields" :key="field.key" :label="field.label"
+              :required="field.required">
               <div v-if="!getProjectFileSource(field)" style="color: #999;">
                 请先选择关联的项目
               </div>
-              <div v-else-if="!projectFilesMap[field.key] || projectFilesMap[field.key].length === 0" style="color: #999;">
+              <div v-else-if="!projectFilesMap[field.key] || projectFilesMap[field.key].length === 0"
+                style="color: #999;">
                 该项目暂无文件
               </div>
               <div v-else class="file-tree-container">
-                <el-tree
-                  :ref="`fileTree_${field.key}`"
-                  :data="projectFilesMap[field.key]"
-                  node-key="id"
-                  show-checkbox
-                  :props="{ children: 'children', label: 'name' }"
-                  default-expand-all
-                  @check-change="(node, checked) => onFileChange(field.key, node, checked)"
-                />
+                <el-tree :ref="`fileTree_${field.key}`" :data="projectFilesMap[field.key]" node-key="id" show-checkbox
+                  :props="{ children: 'children', label: 'name' }" default-expand-all
+                  @check-change="(node, checked) => onFileChange(field.key, node, checked)" />
               </div>
             </el-form-item>
 
             <!-- 普通表单字段 -->
-            <el-form-item
-              v-for="field in normalFields"
-              :key="field.key"
-              :label="field.label"
-              :required="field.required"
-            >
-              <el-input
-                v-if="field.fieldType === 'text'"
-                v-model="startForm.extraData[field.key]"
-                :placeholder="field.placeholder"
-              />
-              <el-input
-                v-else-if="field.fieldType === 'textarea'"
-                v-model="startForm.extraData[field.key]"
-                type="textarea"
-                :rows="3"
-                :placeholder="field.placeholder"
-              />
-              <el-select
-                v-else-if="field.fieldType === 'select'"
-                v-model="startForm.extraData[field.key]"
-                :placeholder="field.placeholder || '请选择'"
-              >
-                <el-option
-                  v-for="option in field.options"
-                  :key="option"
-                  :label="option"
-                  :value="option"
-                />
+            <el-form-item v-for="field in normalFields" :key="field.key" :label="field.label"
+              :required="field.required">
+              <el-input v-if="field.fieldType === 'text'" v-model="startForm.extraData[field.key]"
+                :placeholder="field.placeholder" />
+              <el-input v-else-if="field.fieldType === 'textarea'" v-model="startForm.extraData[field.key]"
+                type="textarea" :rows="3" :placeholder="field.placeholder" />
+              <el-select v-else-if="field.fieldType === 'select'" v-model="startForm.extraData[field.key]"
+                :placeholder="field.placeholder || '请选择'">
+                <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
               </el-select>
-              <el-input-number
-                v-else-if="field.fieldType === 'number'"
-                v-model="startForm.extraData[field.key]"
-              />
-              <el-checkbox
-                v-else-if="field.fieldType === 'checkbox'"
-                v-model="startForm.extraData[field.key]"
-              >
+              <el-input-number v-else-if="field.fieldType === 'number'" v-model="startForm.extraData[field.key]" />
+              <el-checkbox v-else-if="field.fieldType === 'checkbox'" v-model="startForm.extraData[field.key]">
                 {{ field.placeholder || '是' }}
               </el-checkbox>
             </el-form-item>
@@ -207,20 +157,16 @@
           </el-descriptions-item>
           <el-descriptions-item label="发起人">{{ selectedInstance.startedByName }}</el-descriptions-item>
           <el-descriptions-item label="发起时间">{{ formatDate(selectedInstance.startedAt) }}</el-descriptions-item>
-          <el-descriptions-item label="当前节点" :span="2">{{ selectedInstance.currentNodeName || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="当前节点" :span="2">{{ selectedInstance.currentNodeName || '-'
+            }}</el-descriptions-item>
         </el-descriptions>
 
         <!-- 审批历史 -->
         <div class="history-section">
           <h4>审批历史</h4>
           <el-timeline v-if="history.length > 0">
-            <el-timeline-item
-              v-for="(item, index) in history"
-              :key="index"
-              :type="getHistoryType(item.action)"
-              :timestamp="formatDate(item.createdAt)"
-              placement="top"
-            >
+            <el-timeline-item v-for="(item, index) in history" :key="index" :type="getHistoryType(item.action)"
+              :timestamp="formatDate(item.createdAt)" placement="top">
               <el-card shadow="hover">
                 <div class="history-item">
                   <div class="history-node">{{ item.nodeName }}</div>
@@ -603,36 +549,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.workflow-container {
-  height: calc(100vh - 120px);
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  gap: 16px;
-}
-
-.toolbar {
-  display: flex;
-  gap: 12px;
-}
-
-.table-container {
-  flex: 1;
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.pagination {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* 发起对话框 */
+/* Start dialog */
 .start-dialog-content {
   display: flex;
   gap: 20px;
@@ -641,7 +558,7 @@ onMounted(() => {
 
 .definition-panel {
   width: 250px;
-  border-right: 1px solid #eee;
+  border-right: 1px solid var(--color-border);
   padding-right: 20px;
 }
 
@@ -649,7 +566,7 @@ onMounted(() => {
 .form-panel h4 {
   margin: 0 0 12px 0;
   font-size: 14px;
-  color: #333;
+  font-weight: 600;
 }
 
 .definition-list {
@@ -660,7 +577,7 @@ onMounted(() => {
 
 .definition-item {
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   margin-bottom: 4px;
   border: 1px solid transparent;
@@ -668,24 +585,23 @@ onMounted(() => {
 }
 
 .definition-item:hover {
-  background: #f5f5f5;
+  background: var(--color-bg-hover);
 }
 
 .definition-item.active {
-  background: #ecf5ff;
-  border-color: #409eff;
+  background: var(--color-primary-50);
+  border-color: var(--color-primary);
 }
 
 .def-name {
   font-size: 13px;
   font-weight: 500;
-  color: #333;
   margin-bottom: 2px;
 }
 
 .def-category {
   font-size: 11px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .form-panel {
@@ -701,14 +617,14 @@ onMounted(() => {
 }
 
 .file-tree-container {
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   padding: 8px;
   max-height: 150px;
   overflow-y: auto;
 }
 
-/* 详情抽屉 */
+/* Detail drawer */
 .detail-content {
   padding: 0 16px;
 }
@@ -720,7 +636,7 @@ onMounted(() => {
 .history-section h4 {
   margin: 0 0 16px 0;
   font-size: 14px;
-  color: #333;
+  font-weight: 600;
 }
 
 .history-item {
@@ -741,15 +657,15 @@ onMounted(() => {
 
 .history-operator {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .history-formdata {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 4px 0;
   padding: 4px 8px;
-  background: #f5f7fa;
+  background: var(--color-bg-hover);
   border-radius: 4px;
 }
 
@@ -763,7 +679,7 @@ onMounted(() => {
 
 .history-comment {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
   font-style: italic;
   margin-top: 4px;
 }
@@ -771,6 +687,6 @@ onMounted(() => {
 .no-history {
   text-align: center;
   padding: 20px;
-  color: #999;
+  color: var(--color-text-muted);
 }
 </style>

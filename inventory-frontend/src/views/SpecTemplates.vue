@@ -1,94 +1,100 @@
 <template>
-  <div>
-    <el-button type="primary" @click="showDialog = true" style="margin-bottom: 20px;">Add Template</el-button>
-
-    <el-table :data="templates" stripe>
-      <el-table-column prop="category" label="Category" />
-      <el-table-column label="Parameters" width="120">
-        <template #default="{row}">
-          {{ row.paramDefs?.length || 0 }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Actions" width="200">
-        <template #default="{row}">
-          <el-button size="small" @click="editTemplate(row)">Edit</el-button>
-          <el-button size="small" type="danger" @click="deleteTemplate(row.id)">Delete</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+  <div class="page-main">
+    <div style="padding: 20px 24px;">
+      <div class="panel-card">
+        <div style="padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-border);">
+          <span style="font-size: 14px; font-weight: 600;">规格模板</span>
+          <el-button type="primary" size="small" @click="showDialog = true">添加模板</el-button>
+        </div>
+        <el-table :data="templates" stripe>
+          <el-table-column prop="category" label="分类" min-width="150" />
+          <el-table-column label="参数数量" width="100" align="center">
+            <template #default="{row}">
+              {{ row.paramDefs?.length || 0 }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{row}">
+              <el-button size="small" @click="editTemplate(row)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="deleteTemplate(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
 
     <!-- Template Dialog -->
-    <el-dialog v-model="showDialog" :title="editingId ? 'Edit Template' : 'Add Template'" width="700px">
-      <el-form :model="form" label-width="100px">
-        <el-form-item label="Category" required>
-          <el-input v-model="form.category" placeholder="e.g., Motor, Bearing" />
+    <el-dialog v-model="showDialog" :title="editingId ? '编辑模板' : '添加模板'" width="700px">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="分类" required>
+          <el-input v-model="form.category" placeholder="例如: 电机, 轴承" />
         </el-form-item>
 
         <el-divider />
         <div style="margin-bottom: 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-weight: bold;">Parameters</span>
-            <el-button type="primary" size="small" @click="addParam">Add Parameter</el-button>
+            <span style="font-weight: 600;">参数定义</span>
+            <el-button type="primary" size="small" @click="addParam">添加参数</el-button>
           </div>
 
           <div v-if="form.paramDefs && form.paramDefs.length > 0" style="max-height: 300px; overflow-y: auto;">
-            <div v-for="(param, idx) in form.paramDefs" :key="idx" style="padding: 10px; background: #f5f7fa; margin-bottom: 10px; border-radius: 4px;">
+            <div v-for="(param, idx) in form.paramDefs" :key="idx" style="padding: 10px; background: var(--color-bg-hover); margin-bottom: 10px; border-radius: var(--radius);">
               <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                <div style="font-weight: bold;">{{ param.label || 'Unnamed Parameter' }}</div>
+                <div style="font-weight: 600;">{{ param.label || '未命名参数' }}</div>
                 <div style="display: flex; gap: 5px;">
-                  <el-button type="primary" link size="small" @click="editParam(idx)">Edit</el-button>
-                  <el-button type="danger" link size="small" @click="deleteParam(idx)">Delete</el-button>
+                  <el-button type="primary" link size="small" @click="editParam(idx)">编辑</el-button>
+                  <el-button type="danger" link size="small" @click="deleteParam(idx)">删除</el-button>
                 </div>
               </div>
-              <div style="color: #666; font-size: 12px;">
+              <div style="color: var(--color-text-secondary); font-size: 12px;">
                 <span>Key: {{ param.key }}</span>
-                <span style="margin-left: 10px;">Type: {{ param.dataType }}</span>
-                <span v-if="param.unit" style="margin-left: 10px;">Unit: {{ param.unit }}</span>
-                <span v-if="param.required" style="margin-left: 10px; color: #f56c6c;">Required</span>
+                <span style="margin-left: 10px;">类型: {{ param.dataType }}</span>
+                <span v-if="param.unit" style="margin-left: 10px;">单位: {{ param.unit }}</span>
+                <span v-if="param.required" style="margin-left: 10px; color: #f56c6c;">必填</span>
               </div>
             </div>
           </div>
-          <div v-else style="text-align: center; color: #999; padding: 20px;">
-            No parameters defined yet
+          <div v-else style="text-align: center; color: var(--color-text-muted); padding: 20px;">
+            暂无参数定义
           </div>
         </div>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="saveTemplate">Save</el-button>
+        <el-button @click="showDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveTemplate">保存</el-button>
       </template>
     </el-dialog>
 
     <!-- Parameter Edit Dialog -->
-    <el-dialog v-model="showParamDialog" :title="editingParamIndex !== null ? 'Edit Parameter' : 'Add Parameter'" width="500px">
-      <el-form :model="currentParam" label-width="100px">
+    <el-dialog v-model="showParamDialog" :title="editingParamIndex !== null ? '编辑参数' : '添加参数'" width="500px">
+      <el-form :model="currentParam" label-width="80px">
         <el-form-item label="Key" required>
-          <el-input v-model="currentParam.key" placeholder="e.g., voltage" />
+          <el-input v-model="currentParam.key" placeholder="例如: voltage" />
         </el-form-item>
-        <el-form-item label="Label" required>
-          <el-input v-model="currentParam.label" placeholder="e.g., Voltage" />
+        <el-form-item label="标签" required>
+          <el-input v-model="currentParam.label" placeholder="例如: 电压" />
         </el-form-item>
-        <el-form-item label="Unit">
-          <el-input v-model="currentParam.unit" placeholder="e.g., V, kW, rpm" />
+        <el-form-item label="单位">
+          <el-input v-model="currentParam.unit" placeholder="例如: V, kW, rpm" />
         </el-form-item>
-        <el-form-item label="Data Type" required>
-          <el-select v-model="currentParam.dataType">
-            <el-option label="String" value="string" />
-            <el-option label="Number" value="number" />
-            <el-option label="Boolean" value="boolean" />
-            <el-option label="Select" value="select" />
+        <el-form-item label="数据类型" required>
+          <el-select v-model="currentParam.dataType" style="width: 100%;">
+            <el-option label="字符串" value="string" />
+            <el-option label="数字" value="number" />
+            <el-option label="布尔" value="boolean" />
+            <el-option label="下拉选择" value="select" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="currentParam.dataType === 'select'" label="Options" required>
-          <el-input v-model="currentParam.optionsText" type="textarea" rows="3" placeholder="One option per line, e.g.:&#10;Option 1&#10;Option 2&#10;Option 3" />
+        <el-form-item v-if="currentParam.dataType === 'select'" label="选项" required>
+          <el-input v-model="currentParam.optionsText" type="textarea" :rows="3" placeholder="每行一个选项，例如:&#10;选项1&#10;选项2&#10;选项3" />
         </el-form-item>
-        <el-form-item label="Required">
+        <el-form-item label="必填">
           <el-checkbox v-model="currentParam.required" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showParamDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="saveParam">Save</el-button>
+        <el-button @click="showParamDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveParam">保存</el-button>
       </template>
     </el-dialog>
   </div>

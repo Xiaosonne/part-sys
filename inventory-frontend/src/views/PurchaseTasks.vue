@@ -1,62 +1,49 @@
 <template>
-  <div class="purchase-tasks-container">
-    <!-- Header -->
-    <div class="header">
-      <h2>采购任务管理</h2>
-      <el-radio-group v-model="statusFilter" size="default">
-        <el-radio-button label="">全部</el-radio-button>
-        <el-radio-button label="Pending">待采购</el-radio-button>
-        <el-radio-button label="InProgress">采购中</el-radio-button>
-        <el-radio-button label="Received">已到货</el-radio-button>
-        <el-radio-button label="Cancelled">已取消</el-radio-button>
-      </el-radio-group>
-    </div>
+  <div class="page-main">
+    <div style="padding: 20px 24px; flex: 1;">
+      <!-- Filter Bar -->
+      <div class="panel-card" style="margin-bottom: 16px;">
+        <div style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--color-text-secondary);">状态筛选:</span>
+          <el-radio-group v-model="statusFilter" size="small">
+            <el-radio-button label="">全部</el-radio-button>
+            <el-radio-button label="Pending">待采购</el-radio-button>
+            <el-radio-button label="InProgress">采购中</el-radio-button>
+            <el-radio-button label="Received">已到货</el-radio-button>
+            <el-radio-button label="Cancelled">已取消</el-radio-button>
+          </el-radio-group>
+        </div>
+      </div>
 
-    <!-- Task List -->
-    <div class="task-list">
-      <el-table :data="filteredTasks" border stripe v-loading="loading">
-        <el-table-column prop="partName" label="配件名称" width="150" />
-        <el-table-column prop="selectionPlanId" label="选型单ID" width="200" />
-        <el-table-column prop="lockedQty" label="锁定数量" width="100" />
-        <el-table-column prop="requiredQty" label="需采购数量" width="100">
-          <template #default="{ row }">
-            <span class="qty-pending">{{ row.requiredQty }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="updatedAt" label="更新时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.updatedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" type="primary" @click="startTask(row)" :disabled="row.status !== 'Pending'">
-              开始采购
-            </el-button>
-            <el-button size="small" type="success" @click="receiveTask(row)" :disabled="row.status !== 'InProgress'">
-              确认到货
-            </el-button>
-            <el-button size="small" type="danger" plain @click="cancelTask(row)" :disabled="row.status === 'Received' || row.status === 'Cancelled'">
-              取消
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <!-- Task Table -->
+      <div class="panel-card">
+        <el-table :data="filteredTasks" stripe v-loading="loading" style="width: 100%;">
+          <el-table-column prop="partName" label="配件名称" min-width="150" />
+          <el-table-column prop="selectionPlanId" label="选型单" width="200" />
+          <el-table-column prop="lockedQty" label="锁定数量" width="90" align="center" />
+          <el-table-column prop="requiredQty" label="需采购数量" width="100" align="center">
+            <template #default="{ row }">
+              <span class="qty-pending">{{ row.requiredQty }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="110">
+            <template #default="{ row }">
+              <el-tag size="small" :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="createdAt" label="创建时间" width="170" />
+          <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" plain @click="startTask(row)" :disabled="row.status !== 'Pending'">开始采购</el-button>
+              <el-button size="small" type="success" plain @click="receiveTask(row)" :disabled="row.status !== 'InProgress'">确认到货</el-button>
+              <el-button size="small" type="danger" plain @click="cancelTask(row)" :disabled="row.status === 'Received' || row.status === 'Cancelled'">取消</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-if="!loading && filteredTasks.length === 0" description="暂无采购任务" />
+      </div>
     </div>
-
-    <!-- Empty State -->
-    <el-empty v-if="!loading && filteredTasks.length === 0" description="暂无采购任务" />
 
     <!-- Remark Dialog -->
     <el-dialog v-model="showRemarkDialog" title="填写备注" width="400px">

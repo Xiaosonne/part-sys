@@ -1,248 +1,251 @@
 <template>
-  <div class="workflow-designer">
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>流程设计器</span>
-          <div class="header-actions">
-            <el-button type="primary" @click="saveDefinition">保存流程</el-button>
-            <el-button @click="loadDefinition">加载流程</el-button>
-            <el-button @click="exportXML">导出XML</el-button>
+  <div class="page-main">
+    <div style="padding: 20px 24px;">
+      <div class="panel-card">
+        <div
+          style="padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-border);">
+          <span style="font-size: 14px; font-weight: 600;">流程设计器</span>
+          <div style="display: flex; gap: 10px;">
+            <el-button type="primary" size="small" @click="saveDefinition">保存流程</el-button>
+            <el-button size="small" @click="loadDefinition">加载流程</el-button>
+            <el-button size="small" @click="exportXML">导出XML</el-button>
           </div>
         </div>
-      </template>
-
-      <el-row :gutter="20">
-        <!-- 左侧工具栏 -->
-        <el-col :span="4">
-          <div class="toolbar">
-            <h4>节点类型</h4>
-            <div class="node-types">
-              <div class="node-item" draggable="true" @dragstart="dragStart('Start')">
-                <el-icon><CircleCheck /></el-icon>
-                <span>开始</span>
-              </div>
-              <div class="node-item" draggable="true" @dragstart="dragStart('SingleApproval')">
-                <el-icon><User /></el-icon>
-                <span>单人审批</span>
-              </div>
-              <div class="node-item" draggable="true" @dragstart="dragStart('MultiApprovalAnd')">
-                <el-icon><DocumentCopy /></el-icon>
-                <span>多人会签</span>
-              </div>
-              <div class="node-item" draggable="true" @dragstart="dragStart('MultiApprovalOr')">
-                <el-icon><UserFilled /></el-icon>
-                <span>多人或签</span>
-              </div>
-              <div class="node-item" draggable="true" @dragstart="dragStart('End')">
-                <el-icon><CircleCloseFilled /></el-icon>
-                <span>结束</span>
-              </div>
-            </div>
-          </div>
-        </el-col>
-
-        <!-- 中间画布 -->
-        <el-col :span="16">
-          <div class="canvas-container" @drop="handleDrop" @dragover.prevent>
-            <svg ref="canvas" class="canvas">
-              <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                  <polygon points="0 0, 10 3, 0 6" fill="#666" />
-                </marker>
-              </defs>
-              <line v-for="line in getLines()" :key="`${line.from}-${line.to}`" :x1="line.x1" :y1="line.y1" :x2="line.x2" :y2="line.y2" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)" />
-            </svg>
-            <div class="nodes-container">
-              <div
-                v-for="node in nodes"
-                :key="node.id"
-                class="node"
-                :style="{ left: node.x + 'px', top: node.y + 'px' }"
-                @click="selectNode(node)"
-                @mousedown="startNodeDrag($event, node)"
-                :class="{ selected: selectedNode?.id === node.id }"
-              >
-                <div class="node-content">
-                  <div class="node-type">{{ getNodeTypeLabel(node.nodeType) }}</div>
-                  <div class="node-name">{{ node.name }}</div>
+        <div style="padding: 16px;">
+          <el-row :gutter="20">
+            <!-- 左侧工具栏 -->
+            <el-col :span="4">
+              <div class="toolbar">
+                <h4>节点类型</h4>
+                <div class="node-types">
+                  <div class="node-item" draggable="true" @dragstart="dragStart('Start')">
+                    <el-icon>
+                      <CircleCheck />
+                    </el-icon>
+                    <span>开始</span>
+                  </div>
+                  <div class="node-item" draggable="true" @dragstart="dragStart('SingleApproval')">
+                    <el-icon>
+                      <User />
+                    </el-icon>
+                    <span>单人审批</span>
+                  </div>
+                  <div class="node-item" draggable="true" @dragstart="dragStart('MultiApprovalAnd')">
+                    <el-icon>
+                      <DocumentCopy />
+                    </el-icon>
+                    <span>多人会签</span>
+                  </div>
+                  <div class="node-item" draggable="true" @dragstart="dragStart('MultiApprovalOr')">
+                    <el-icon>
+                      <UserFilled />
+                    </el-icon>
+                    <span>多人或签</span>
+                  </div>
+                  <div class="node-item" draggable="true" @dragstart="dragStart('End')">
+                    <el-icon>
+                      <CircleCloseFilled />
+                    </el-icon>
+                    <span>结束</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </el-col>
+            </el-col>
 
-        <!-- 右侧配置面板 -->
-        <el-col :span="4">
-          <div class="config-panel">
-            <h4>节点配置</h4>
-            <div v-if="selectedNode" class="node-config">
-              <el-form :model="selectedNode" label-width="80px">
-                <el-form-item label="节点名称">
-                  <el-input v-model="selectedNode.name" />
-                </el-form-item>
-                <el-form-item label="节点类型">
-                  <el-select v-model="selectedNode.nodeType" disabled>
-                    <el-option label="开始" value="Start" />
-                    <el-option label="单人审批" value="SingleApproval" />
-                    <el-option label="多人会签" value="MultiApprovalAnd" />
-                    <el-option label="多人或签" value="MultiApprovalOr" />
-                    <el-option label="结束" value="End" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item v-if="selectedNode.nodeType !== 'Start' && selectedNode.nodeType !== 'End'" label="审批人">
-                  <el-select
-                    v-model="selectedNode.approvers"
-                    multiple
-                    filterable
-                    placeholder="选择审批人"
-                  >
-                    <el-option
-                      v-for="u in users"
-                      :key="u.id"
-                      :label="u.username"
-                      :value="u.id"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item v-if="selectedNode.nodeType !== 'Start' && selectedNode.nodeType !== 'End'" label="超时(分钟)">
-                  <el-input-number v-model="selectedNode.timeoutMinutes" :min="0" />
-                </el-form-item>
-                <el-form-item v-if="selectedNode.nodeType !== 'End'" label="下一节点">
-                  <el-select v-model="selectedNode.nextNodes" multiple placeholder="选择下一节点">
-                    <el-option v-for="node in nodes.filter(n => n.id !== selectedNode.id)" :key="node.id" :label="node.name" :value="node.id" />
-                  </el-select>
-                </el-form-item>
-
-                <!-- 表单字段配置 -->
-                <el-divider />
-                <div style="margin-bottom: 10px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <span style="font-weight: bold; font-size: 12px;">表单字段</span>
-                    <el-button type="primary" size="small" @click="addFormField">添加字段</el-button>
-                  </div>
-                  <div v-if="selectedNode.formFields && selectedNode.formFields.length > 0" style="max-height: 200px; overflow-y: auto;">
-                    <div v-for="(field, idx) in selectedNode.formFields" :key="idx" style="padding: 8px; background: #f5f7fa; margin-bottom: 8px; border-radius: 4px; font-size: 12px;">
-                      <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div style="flex: 1;">
-                          <div><strong>{{ field.label }}</strong></div>
-                          <div style="color: #666; font-size: 11px;">类型: {{ field.fieldType }} {{ field.required ? '(必填)' : '(可选)' }}</div>
-                        </div>
-                        <div style="display: flex; gap: 5px;">
-                          <el-button type="primary" link size="small" @click="editFormField(idx)">编辑</el-button>
-                          <el-button type="danger" link size="small" @click="deleteFormField(idx)">删除</el-button>
-                        </div>
-                      </div>
+            <!-- 中间画布 -->
+            <el-col :span="16">
+              <div class="canvas-container" @drop="handleDrop" @dragover.prevent>
+                <svg ref="canvas" class="canvas">
+                  <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                      <polygon points="0 0, 10 3, 0 6" fill="#666" />
+                    </marker>
+                  </defs>
+                  <line v-for="line in getLines()" :key="`${line.from}-${line.to}`" :x1="line.x1" :y1="line.y1"
+                    :x2="line.x2" :y2="line.y2" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)" />
+                </svg>
+                <div class="nodes-container">
+                  <div v-for="node in nodes" :key="node.id" class="node"
+                    :style="{ left: node.x + 'px', top: node.y + 'px' }" @click="selectNode(node)"
+                    @mousedown="startNodeDrag($event, node)" :class="{ selected: selectedNode?.id === node.id }">
+                    <div class="node-content">
+                      <div class="node-type">{{ getNodeTypeLabel(node.nodeType) }}</div>
+                      <div class="node-name">{{ node.name }}</div>
                     </div>
                   </div>
-                  <div v-else style="color: #999; font-size: 12px; padding: 10px; text-align: center;">暂无表单字段</div>
                 </div>
+              </div>
+            </el-col>
 
-                <el-button type="danger" @click="deleteNode">删除节点</el-button>
-              </el-form>
-            </div>
-            <div v-else class="empty-state">
-              <p>选择节点进行配置</p>
-            </div>
-          </div>
-        </el-col>
-      </el-row>
-    </el-card>
+            <!-- 右侧配置面板 -->
+            <el-col :span="4">
+              <div class="config-panel">
+                <h4>节点配置</h4>
+                <div v-if="selectedNode" class="node-config">
+                  <el-form :model="selectedNode" label-width="80px">
+                    <el-form-item label="节点名称">
+                      <el-input v-model="selectedNode.name" />
+                    </el-form-item>
+                    <el-form-item label="节点类型">
+                      <el-select v-model="selectedNode.nodeType" disabled>
+                        <el-option label="开始" value="Start" />
+                        <el-option label="单人审批" value="SingleApproval" />
+                        <el-option label="多人会签" value="MultiApprovalAnd" />
+                        <el-option label="多人或签" value="MultiApprovalOr" />
+                        <el-option label="结束" value="End" />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item v-if="selectedNode.nodeType !== 'Start' && selectedNode.nodeType !== 'End'"
+                      label="审批人">
+                      <el-select v-model="selectedNode.approvers" multiple filterable placeholder="选择审批人">
+                        <el-option v-for="u in users" :key="u.id" :label="u.username" :value="u.id" />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item v-if="selectedNode.nodeType !== 'Start' && selectedNode.nodeType !== 'End'"
+                      label="超时(分钟)">
+                      <el-input-number v-model="selectedNode.timeoutMinutes" :min="0" />
+                    </el-form-item>
+                    <el-form-item v-if="selectedNode.nodeType !== 'End'" label="下一节点">
+                      <el-select v-model="selectedNode.nextNodes" multiple placeholder="选择下一节点">
+                        <el-option v-for="node in nodes.filter(n => n.id !== selectedNode.id)" :key="node.id"
+                          :label="node.name" :value="node.id" />
+                      </el-select>
+                    </el-form-item>
 
-    <!-- 流程定义对话框 -->
-    <el-dialog v-model="showDefinitionDialog" title="流程定义" width="600px">
-      <el-form :model="definitionForm" label-width="100px">
-        <el-form-item label="流程名称">
-          <el-input v-model="definitionForm.name" />
-        </el-form-item>
-        <el-form-item label="流程描述">
-          <el-input v-model="definitionForm.description" type="textarea" />
-        </el-form-item>
-        <el-form-item label="流程分类">
-          <el-input v-model="definitionForm.category" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showDefinitionDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitDefinition">保存</el-button>
-      </template>
-    </el-dialog>
+                    <!-- 表单字段配置 -->
+                    <el-divider />
+                    <div style="margin-bottom: 10px;">
+                      <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: bold; font-size: 12px;">表单字段</span>
+                        <el-button type="primary" size="small" @click="addFormField">添加字段</el-button>
+                      </div>
+                      <div v-if="selectedNode.formFields && selectedNode.formFields.length > 0"
+                        style="max-height: 200px; overflow-y: auto;">
+                        <div v-for="(field, idx) in selectedNode.formFields" :key="idx"
+                          style="padding: 8px; background: #f5f7fa; margin-bottom: 8px; border-radius: 4px; font-size: 12px;">
+                          <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                              <div><strong>{{ field.label }}</strong></div>
+                              <div style="color: #666; font-size: 11px;">类型: {{ field.fieldType }} {{ field.required ?
+                                '(必填)' : '(可选)' }}</div>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                              <el-button type="primary" link size="small" @click="editFormField(idx)">编辑</el-button>
+                              <el-button type="danger" link size="small" @click="deleteFormField(idx)">删除</el-button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else style="color: #999; font-size: 12px; padding: 10px; text-align: center;">暂无表单字段</div>
+                    </div>
 
-    <!-- 加载流程对话框 -->
-    <el-dialog v-model="showLoadDialog" title="加载流程" width="600px">
-      <el-table :data="definitions" stripe @row-click="selectDefinitionToLoad">
-        <el-table-column prop="name" label="流程名称" width="200" />
-        <el-table-column prop="category" label="分类" width="150" />
-        <el-table-column prop="description" label="描述" />
-      </el-table>
-    </el-dialog>
+                    <el-button type="danger" @click="deleteNode">删除节点</el-button>
+                  </el-form>
+                </div>
+                <div v-else class="empty-state">
+                  <p>选择节点进行配置</p>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+      </div>
 
-    <!-- 表单字段编辑对话框 -->
-    <el-dialog v-model="showFieldDialog" :title="editingFieldIndex !== null ? '编辑表单字段' : '添加表单字段'" width="600px">
-      <el-form :model="currentField" label-width="100px">
-        <el-form-item label="字段标签" required>
-          <el-input v-model="currentField.label" placeholder="如：审批意见" />
-        </el-form-item>
-        <el-form-item label="字段Key" required>
-          <el-input v-model="currentField.key" placeholder="如：approvalOpinion" />
-        </el-form-item>
-        <el-form-item label="字段类型" required>
-          <el-select v-model="currentField.fieldType">
-            <el-option label="单行文本" value="text" />
-            <el-option label="多行文本" value="textarea" />
-            <el-option label="下拉选择" value="select" />
-            <el-option label="数字" value="number" />
-            <el-option label="复选框" value="checkbox" />
-            <el-option label="项目选择" value="project" />
-            <el-option label="项目文件选择" value="projectFile" />
-          </el-select>
-        </el-form-item>
+      <!-- 流程定义对话框 -->
+      <el-dialog v-model="showDefinitionDialog" title="流程定义" width="600px">
+        <el-form :model="definitionForm" label-width="100px">
+          <el-form-item label="流程名称">
+            <el-input v-model="definitionForm.name" />
+          </el-form-item>
+          <el-form-item label="流程描述">
+            <el-input v-model="definitionForm.description" type="textarea" />
+          </el-form-item>
+          <el-form-item label="流程分类">
+            <el-input v-model="definitionForm.category" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showDefinitionDialog = false">取消</el-button>
+          <el-button type="primary" @click="submitDefinition">保存</el-button>
+        </template>
+      </el-dialog>
 
-        <!-- 项目选择类型的配置 -->
-        <el-form-item v-if="currentField.fieldType === 'project'" label="实体类型">
-          <el-select v-model="currentField.entityType" placeholder="选择实体类型">
-            <el-option label="项目" value="Project" />
-            <el-option label="文件夹" value="Folder" />
-            <el-option label="配件" value="Part" />
-          </el-select>
-        </el-form-item>
+      <!-- 加载流程对话框 -->
+      <el-dialog v-model="showLoadDialog" title="加载流程" width="600px">
+        <el-table :data="definitions" stripe @row-click="selectDefinitionToLoad">
+          <el-table-column prop="name" label="流程名称" width="200" />
+          <el-table-column prop="category" label="分类" width="150" />
+          <el-table-column prop="description" label="描述" />
+        </el-table>
+      </el-dialog>
 
-        <!-- 项目文件选择类型的配置 -->
-        <template v-if="currentField.fieldType === 'projectFile'">
-          <el-form-item label="关联项目字段">
-            <el-select v-model="currentField.entitySourceKey" placeholder="选择关联的项目字段">
-              <el-option
-                v-for="f in availableProjectFields"
-                :key="f.key"
-                :label="`${f.label} (${f.key})`"
-                :value="f.key"
-              />
+      <!-- 表单字段编辑对话框 -->
+      <el-dialog v-model="showFieldDialog" :title="editingFieldIndex !== null ? '编辑表单字段' : '添加表单字段'" width="600px">
+        <el-form :model="currentField" label-width="100px">
+          <el-form-item label="字段标签" required>
+            <el-input v-model="currentField.label" placeholder="如：审批意见" />
+          </el-form-item>
+          <el-form-item label="字段Key" required>
+            <el-input v-model="currentField.key" placeholder="如：approvalOpinion" />
+          </el-form-item>
+          <el-form-item label="字段类型" required>
+            <el-select v-model="currentField.fieldType">
+              <el-option label="单行文本" value="text" />
+              <el-option label="多行文本" value="textarea" />
+              <el-option label="下拉选择" value="select" />
+              <el-option label="数字" value="number" />
+              <el-option label="复选框" value="checkbox" />
+              <el-option label="项目选择" value="project" />
+              <el-option label="项目文件选择" value="projectFile" />
             </el-select>
           </el-form-item>
-          <el-form-item label="允许的文件类型">
-            <el-input v-model="currentField.allowedFileTypesText" type="textarea" rows="2" placeholder="如：.pdf,.docx,.dwg" />
+
+          <!-- 项目选择类型的配置 -->
+          <el-form-item v-if="currentField.fieldType === 'project'" label="实体类型">
+            <el-select v-model="currentField.entityType" placeholder="选择实体类型">
+              <el-option label="项目" value="Project" />
+              <el-option label="文件夹" value="Folder" />
+              <el-option label="配件" value="Part" />
+            </el-select>
           </el-form-item>
+
+          <!-- 项目文件选择类型的配置 -->
+          <template v-if="currentField.fieldType === 'projectFile'">
+            <el-form-item label="关联项目字段">
+              <el-select v-model="currentField.entitySourceKey" placeholder="选择关联的项目字段">
+                <el-option v-for="f in availableProjectFields" :key="f.key" :label="`${f.label} (${f.key})`"
+                  :value="f.key" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="允许的文件类型">
+              <el-input v-model="currentField.allowedFileTypesText" type="textarea" rows="2"
+                placeholder="如：.pdf,.docx,.dwg" />
+            </el-form-item>
+          </template>
+
+          <!-- 占位符 -->
+          <el-form-item v-if="currentField.fieldType !== 'project' && currentField.fieldType !== 'projectFile'"
+            label="占位符">
+            <el-input v-model="currentField.placeholder" placeholder="输入框提示文本" />
+          </el-form-item>
+
+          <!-- 下拉选择的选项 -->
+          <el-form-item v-if="currentField.fieldType === 'select'" label="选项" required>
+            <el-input v-model="currentField.optionsText" type="textarea" rows="3"
+              placeholder="每行一个选项，如：同意&#10;不同意&#10;需要修改" />
+          </el-form-item>
+
+          <el-form-item label="必填">
+            <el-checkbox v-model="currentField.required" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showFieldDialog = false">取消</el-button>
+          <el-button type="primary" @click="saveFormField">保存</el-button>
         </template>
-
-        <!-- 占位符 -->
-        <el-form-item v-if="currentField.fieldType !== 'project' && currentField.fieldType !== 'projectFile'" label="占位符">
-          <el-input v-model="currentField.placeholder" placeholder="输入框提示文本" />
-        </el-form-item>
-
-        <!-- 下拉选择的选项 -->
-        <el-form-item v-if="currentField.fieldType === 'select'" label="选项" required>
-          <el-input v-model="currentField.optionsText" type="textarea" rows="3" placeholder="每行一个选项，如：同意&#10;不同意&#10;需要修改" />
-        </el-form-item>
-
-        <el-form-item label="必填">
-          <el-checkbox v-model="currentField.required" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showFieldDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveFormField">保存</el-button>
-      </template>
-    </el-dialog>
+      </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -614,30 +617,16 @@ const allowedFileTypesText = computed({
 </script>
 
 <style scoped>
-.workflow-designer {
-  padding: 20px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
-  display: flex;
-  gap: 10px;
-}
-
 .toolbar {
   padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
 }
 
 .toolbar h4 {
   margin: 0 0 10px 0;
   font-size: 14px;
+  font-weight: 600;
 }
 
 .node-types {
@@ -648,28 +637,28 @@ const allowedFileTypesText = computed({
 
 .node-item {
   padding: 8px;
-  border: 1px solid #409eff;
-  border-radius: 4px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
   cursor: move;
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  background: #f0f9ff;
+  background: var(--color-primary-50);
   transition: all 0.3s;
 }
 
 .node-item:hover {
-  background: #e0f2fe;
+  background: var(--color-primary-100);
 }
 
 .canvas-container {
   position: relative;
   width: 100%;
   height: 600px;
-  border: 2px dashed #ddd;
-  border-radius: 4px;
-  background: #fafafa;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg-page);
   overflow: hidden;
 }
 
@@ -690,14 +679,14 @@ const allowedFileTypesText = computed({
   width: 120px;
   padding: 10px;
   background: white;
-  border: 2px solid #409eff;
-  border-radius: 4px;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .node:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .node.selected {
@@ -711,7 +700,7 @@ const allowedFileTypesText = computed({
 }
 
 .node-type {
-  color: #909399;
+  color: var(--color-text-muted);
   font-size: 11px;
 }
 
@@ -722,8 +711,8 @@ const allowedFileTypesText = computed({
 
 .config-panel {
   padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   max-height: 600px;
   overflow-y: auto;
 }
@@ -731,6 +720,7 @@ const allowedFileTypesText = computed({
 .config-panel h4 {
   margin: 0 0 10px 0;
   font-size: 14px;
+  font-weight: 600;
 }
 
 .node-config {
@@ -739,7 +729,7 @@ const allowedFileTypesText = computed({
 
 .empty-state {
   text-align: center;
-  color: #909399;
+  color: var(--color-text-muted);
   padding: 20px;
 }
 </style>
