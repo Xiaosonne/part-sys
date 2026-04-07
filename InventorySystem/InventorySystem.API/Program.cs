@@ -68,9 +68,11 @@ try
     builder.Services.AddScoped<IWorkflowHistoryRepository, WorkflowHistoryRepository>();
     builder.Services.AddScoped<IWorkspaceStructureRepository, WorkspaceStructureRepository>();
     builder.Services.AddScoped<IPartCategoryRepository, PartCategoryRepository>();
+    builder.Services.AddScoped<IPurchaseTaskRepository, PurchaseTaskRepository>();
 
     // Services
     builder.Services.AddScoped<IStockService, StockService>();
+    builder.Services.AddScoped<ISelectionService, SelectionService>();
     builder.Services.AddScoped<IWorkflowService, WorkflowService>();
     builder.Services.AddScoped<IWorkflowTaskService, WorkflowTaskService>();
     builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(Path.Combine(AppContext.BaseDirectory, "wwwroot/files")));

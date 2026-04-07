@@ -7,6 +7,7 @@ import Transactions from '@/views/Transactions.vue'
 import Projects from '@/views/Projects.vue'
 import ProjectDetail from '@/views/ProjectDetail.vue'
 import Selections from '@/views/Selections.vue'
+import PurchaseTasks from '@/views/PurchaseTasks.vue'
 import Users from '@/views/Users.vue'
 import WorkflowDesigner from '@/views/WorkflowDesigner.vue'
 import PendingTasks from '@/views/PendingTasks.vue'
@@ -32,6 +33,7 @@ const routes = [
       { path: 'projects', component: Projects, name: 'Projects' },
       { path: 'projects/:id', component: ProjectDetail, name: 'ProjectDetail' },
       { path: 'selections', component: Selections },
+      { path: 'purchase-tasks', component: PurchaseTasks },
       { path: 'users', component: Users },
       { path: 'workflows/start', component: StartWorkflow, name: 'StartWorkflow' },
       { path: 'workflows/designer', component: WorkflowDesigner, name: 'WorkflowDesigner' },

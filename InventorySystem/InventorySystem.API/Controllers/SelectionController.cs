@@ -12,11 +12,16 @@ public class SelectionController : ControllerBase
 {
     private readonly ISelectionPlanRepository _repo;
     private readonly IPartRepository _partRepo;
+    private readonly ISelectionService _selectionService;
 
-    public SelectionController(ISelectionPlanRepository repo, IPartRepository partRepo)
+    public SelectionController(
+        ISelectionPlanRepository repo,
+        IPartRepository partRepo,
+        ISelectionService selectionService)
     {
         _repo = repo;
         _partRepo = partRepo;
+        _selectionService = selectionService;
     }
 
     [HttpGet]
@@ -40,7 +45,7 @@ public class SelectionController : ControllerBase
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         plan.CreatedBy = userId;
         plan.CreatedAt = DateTime.UtcNow;
-        plan.Status = "draft";
+        plan.Status = SelectionPlanStatus.Draft;
         await _repo.CreateAsync(plan);
         return CreatedAtAction(nameof(GetById), new { id = plan.Id }, plan);
     }
@@ -66,14 +71,73 @@ public class SelectionController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// 提交选型单 - 锁定库存，库存不够时生成采购任务
+    /// </summary>
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(string id)
     {
-        var plan = await _repo.GetByIdAsync(id);
-        if (plan == null) return NotFound();
-        plan.Status = "submitted";
-        await _repo.UpdateAsync(id, plan);
-        return Ok(plan);
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+            var result = await _selectionService.SubmitAsync(id, userId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 配件出库 - 从已锁定的配件中出库
+    /// </summary>
+    [HttpPost("{planId}/items/{itemId}/outbound")]
+    public async Task<IActionResult> Outbound(
+        string planId,
+        string itemId,
+        [FromQuery] int qty,
+        [FromQuery] string? recipientId,
+        [FromQuery] string? recipientName)
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+            var plan = await _repo.GetByIdAsync(planId);
+            if (plan == null) return NotFound(new { message = "选型单不存在" });
+
+            var result = await _selectionService.OutboundAsync(
+                planId,
+                itemId,
+                qty,
+                userId,
+                plan.ProjectId,
+                recipientId,
+                recipientName);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// 取消选型单 - 解锁所有未出库的配件
+    /// </summary>
+    [HttpPost("{id}/cancel")]
+    public async Task<IActionResult> Cancel(string id)
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+            await _selectionService.CancelAsync(id, userId);
+            return Ok(new { message = "选型单已取消" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id}/match")]
@@ -85,10 +149,8 @@ public class SelectionController : ControllerBase
         var item = plan.Items.FirstOrDefault(i => i.Id == itemId);
         if (item == null) return NotFound(new { message = "条目不存在" });
 
-        var criteria = item.FilterCriteria
-            .Select(f => (f.Key, f.Operator, f.Value))
-            .ToList();
-
+        // 根据分类筛选配件（暂不支持详细过滤条件）
+        var criteria = new List<(string key, string op, string value)>();
         var matched = await _partRepo.FilterBySpecsAsync(item.Category, criteria);
         return Ok(matched.Select(p => new
         {
