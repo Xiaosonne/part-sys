@@ -1,69 +1,65 @@
 <template>
   <div class="selection-container">
-    <!-- Header -->
-    <div class="header">
-      <h2>选型中心</h2>
-    </div>
-
-    <!-- Two-column layout -->
-    <div class="main-layout">
+    <el-container style="height: 100%;">
       <!-- Left: Project-Selection Tree -->
-      <div class="left-panel">
-        <el-input v-model="treeSearch" placeholder="搜索项目/选型" prefix-icon="Search" clearable style="margin-bottom: 10px;" />
+      <el-aside width="280px" style="background-color: #f5f7fa; border-right: 1px solid #e4e7ed; height: 100%; overflow: hidden;">
+        <div class="left-panel">
+          <el-input v-model="treeSearch" placeholder="搜索项目/选型" prefix-icon="Search" clearable style="margin-bottom: 10px;" />
 
-        <!-- Create new selection -->
-        <el-popover placement="right" :width="300" trigger="click" v-model:visible="showNewPlanPopover">
-          <template #reference>
-            <el-button type="primary" size="small" style="width: 100%; margin-bottom: 10px;">+ 新建选型单</el-button>
-          </template>
-          <el-form :model="newPlanForm" label-width="80px" size="small">
-            <el-form-item label="名称">
-              <el-input v-model="newPlanForm.name" placeholder="选型单名称" />
-            </el-form-item>
-            <el-form-item label="所属项目">
-              <el-select v-model="newPlanForm.projectId" placeholder="选择项目" filterable style="width: 100%;">
-                <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" size="small" @click="saveNewPlan" style="width: 100%;">创建</el-button>
-            </el-form-item>
-          </el-form>
-        </el-popover>
-
-        <!-- Tree -->
-        <el-scrollbar class="tree-scrollbar">
-          <el-tree
-            ref="treeRef"
-            :data="treeData"
-            :props="{ label: 'name', children: 'children' }"
-            :expand-on-click-node="true"
-            :default-expand-all="true"
-            node-key="id"
-            :current-node-key="currentNodeKey"
-            :filter-node-method="filterTreeNode"
-            @node-click="onTreeNodeClick"
-            highlight-current
-            class="selection-tree"
-          >
-            <template #default="{ node, data }">
-              <span class="tree-node">
-                <span v-if="data.type === 'project'" class="node-icon">📁</span>
-                <span v-else class="node-icon">📋</span>
-                <span class="node-label">{{ node.label }}</span>
-                <el-tag v-if="data.type === 'selection'" size="small" :type="statusType(data.status)" style="margin-left: 6px;">
-                  {{ statusText(data.status) }}
-                </el-tag>
-              </span>
+          <!-- Create new selection -->
+          <el-popover placement="right" :width="300" trigger="click" v-model:visible="showNewPlanPopover">
+            <template #reference>
+              <el-button type="primary" size="small" style="width: 100%; margin-bottom: 10px;">+ 新建选型单</el-button>
             </template>
-          </el-tree>
-        </el-scrollbar>
-      </div>
+            <el-form :model="newPlanForm" label-width="80px" size="small">
+              <el-form-item label="名称">
+                <el-input v-model="newPlanForm.name" placeholder="选型单名称" />
+              </el-form-item>
+              <el-form-item label="所属项目">
+                <el-select v-model="newPlanForm.projectId" placeholder="选择项目" filterable style="width: 100%;">
+                  <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+                </el-select>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" size="small" @click="saveNewPlan" style="width: 100%;">创建</el-button>
+              </el-form-item>
+            </el-form>
+          </el-popover>
+
+          <!-- Tree -->
+          <el-scrollbar class="tree-scrollbar">
+            <el-tree
+              ref="treeRef"
+              :data="treeData"
+              :props="{ label: 'name', children: 'children' }"
+              :expand-on-click-node="true"
+              :default-expand-all="true"
+              node-key="id"
+              :current-node-key="currentNodeKey"
+              :filter-node-method="filterTreeNode"
+              @node-click="onTreeNodeClick"
+              highlight-current
+              class="selection-tree"
+            >
+              <template #default="{ node, data }">
+                <span class="tree-node">
+                  <span v-if="data.type === 'project'" class="node-icon">📁</span>
+                  <span v-else class="node-icon">📋</span>
+                  <span class="node-label">{{ node.label }}</span>
+                  <el-tag v-if="data.type === 'selection'" size="small" :type="statusType(data.status)" style="margin-left: 6px;">
+                    {{ statusText(data.status) }}
+                  </el-tag>
+                </span>
+              </template>
+            </el-tree>
+          </el-scrollbar>
+        </div>
+      </el-aside>
 
       <!-- Right: Dynamic Content -->
-      <div class="right-panel">
+      <el-main style="padding: 0; display: flex; flex-direction: column; height: 100%; overflow: hidden;">
         <!-- Empty state -->
-        <el-empty v-if="!currentProject && !currentPlan" description="从左侧选择一个项目或选型单" />
+        <el-empty v-if="!currentProject && !currentPlan" description="从左侧选择一个项目或选型单" style="flex: 1;" />
 
         <!-- Project selected: show selection list for that project -->
         <div v-else-if="currentProject && !currentPlan" class="project-view">
@@ -188,25 +184,100 @@
             </el-table-column>
           </el-table>
         </div>
-      </div>
-    </div>
+      </el-main>
+    </el-container>
 
     <!-- Select Part Dialog (add new OR re-select existing) -->
-    <el-dialog v-model="showPartDialog" :title="currentItem ? '重新选择配件' : '添加配件'" width="700px">
-      <div class="part-filter">
-        <el-input v-model="partFilter" placeholder="搜索配件名称/型号/品牌/分类" clearable style="margin-bottom: 10px;" />
+    <el-dialog v-model="showPartDialog" :title="currentItem ? '重新选择配件' : '添加配件'" width="1100px">
+      <!-- Search Bar (integrated with spec filter) -->
+      <div class="part-search-bar">
+        <el-input v-model="keyword" placeholder="搜索名称/型号/品牌" clearable style="width: 160px;" @keyup.enter="doSearch" />
+
+        <!-- Category Tree Selector -->
+        <el-popover placement="bottom-start" :width="280" trigger="click" v-model:visible="showCategoryPopover">
+          <template #reference>
+            <el-button style="width: 160px; text-align: left;">
+              {{ selectedCategoryName || '选择分类（全部）' }}
+              <el-icon style="float: right; margin-top: 2px;"><ArrowDown /></el-icon>
+            </el-button>
+          </template>
+          <el-scrollbar style="height: 300px;">
+            <el-tree
+              ref="categoryTreeRef"
+              :data="categoryTree"
+              :props="{ label: 'name', value: 'id', children: 'children' }"
+              node-key="id"
+              :expand-on-click-node="true"
+              :default-expand-all="true"
+              highlight-current
+              @node-click="onCategoryNodeClick"
+            />
+          </el-scrollbar>
+          <div style="margin-top: 8px; text-align: right;">
+            <el-button size="small" @click="clearCategory">清除</el-button>
+            <el-button size="small" type="primary" @click="showCategoryPopover = false">确定</el-button>
+          </div>
+        </el-popover>
+
+        <el-input-number v-model="minQty" :min="0" placeholder="最小库存" size="default" style="width: 100px;" controls-position="right" />
+        <span class="range-sep">-</span>
+        <el-input-number v-model="maxQty" :min="0" placeholder="最大库存" size="default" style="width: 100px;" controls-position="right" />
+
+        <!-- Spec filter dropdown — only show when category has template -->
+        <el-dropdown v-if="template" @command="handleAddFilter" trigger="click">
+          <el-button type="primary" plain size="default">
+            <el-icon><Plus /></el-icon> 添加规格过滤
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-for="param in availableParams" :key="param.key" :command="param">
+                {{ param.label }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+
+        <!-- Active Filter Tags -->
+        <div class="filter-tags-row" v-if="activeFilters.length > 0">
+          <el-tag
+            v-for="filter in activeFilters"
+            :key="filter.key"
+            closable
+            @close="removeFilter(filter.key)"
+            class="filter-tag"
+          >
+            {{ filter.label }}: {{ formatFilterValue(filter) }}
+          </el-tag>
+        </div>
+
+        <el-button type="primary" @click="doSearch" :loading="searching" size="default">搜索</el-button>
+        <el-button @click="resetFilters" size="default">重置</el-button>
       </div>
-      <el-table :data="filteredParts" border stripe max-height="300" @row-click="selectPartRow" highlight-current-row>
-        <el-table-column prop="name" label="配件名称" />
+
+      <!-- Results Table -->
+      <el-table :data="results" border stripe max-height="300" v-loading="searching" @row-click="selectPartRow" highlight-current-row>
+        <el-table-column prop="name" label="配件名称" min-width="120" />
         <el-table-column prop="model" label="型号" width="120" />
         <el-table-column prop="brand" label="品牌" width="100" />
-        <el-table-column prop="category" label="分类" width="100" />
-        <el-table-column prop="availableQty" label="可用库存" width="100" align="center">
+        <el-table-column prop="category" label="分类" width="120" />
+        <el-table-column label="规格" min-width="150">
+          <template #default="{row}">
+            <div v-if="row.specs && row.specs.length > 0" class="specs-mini">
+              <span v-for="spec in row.specs.slice(0, 2)" :key="spec.key" class="spec-chip">{{ spec.label }}: {{ spec.value }}{{ spec.unit }}</span>
+              <span v-if="row.specs.length > 2" class="more-specs">+{{ row.specs.length - 2 }}</span>
+            </div>
+            <span v-else class="no-specs">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="availableQty" label="可用库存" width="90" align="center">
           <template #default="{ row }">
-            <span :class="{ 'qty-low': row.availableQty < 5 }">{{ row.availableQty }}</span>
+            <span :class="{ 'qty-low': row.availableQty < 5 }">{{ row.availableQty ?? 0 }}</span>
           </template>
         </el-table-column>
       </el-table>
+      <el-empty v-if="results.length === 0 && !searching" description="请设置过滤条件搜索配件" style="margin: 20px 0;" />
+
+      <!-- Selection Form -->
       <div v-if="selectedPartForAdd" class="add-form">
         <div class="selected-info">
           已选: <strong>{{ selectedPartForAdd.name }}</strong>
@@ -218,6 +289,44 @@
           </el-form-item>
         </el-form>
       </div>
+
+      <!-- Filter Editor Modal -->
+      <el-dialog v-model="showFilterModal" title="编辑过滤条件" width="450px">
+        <el-form v-if="editingParam" :label-width="90">
+          <el-form-item label="规格参数">
+            <span>{{ editingParam.label }}</span>
+          </el-form-item>
+          <el-form-item v-if="editingParam.dataType === 'string'" label="值">
+            <el-input v-model="filterValue.string" :placeholder="`输入${editingParam.label}`" clearable style="width: 100%;" />
+          </el-form-item>
+          <el-form-item v-else-if="editingParam.dataType === 'number'" label="范围">
+            <div class="number-range-edit">
+              <el-input-number v-model="filterValue.min" :placeholder="editingParam.unit ? `最小${editingParam.unit}` : '最小值'" :min="0" controls-position="right" style="width: 130px;" />
+              <span class="range-sep">-</span>
+              <el-input-number v-model="filterValue.max" :placeholder="editingParam.unit ? `最大${editingParam.unit}` : '最大值'" :min="0" controls-position="right" style="width: 130px;" />
+              <span v-if="editingParam.unit" class="unit-label">{{ editingParam.unit }}</span>
+            </div>
+          </el-form-item>
+          <el-form-item v-else-if="editingParam.dataType === 'select' && editingParam.options?.length < 5" label="值">
+            <el-radio-group v-model="filterValue.selected">
+              <el-radio-button v-for="opt in editingParam.options" :key="opt" :value="opt">{{ opt }}</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-else-if="editingParam.dataType === 'select'" label="值">
+            <el-select v-model="filterValue.selected" :placeholder="`选择${editingParam.label}`" clearable style="width: 100%;">
+              <el-option v-for="opt in editingParam.options" :key="opt" :label="opt" :value="opt" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-else-if="editingParam.dataType === 'boolean'" label="值">
+            <el-switch v-model="filterValue.bool" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showFilterModal = false">取消</el-button>
+          <el-button type="primary" @click="confirmFilter">确定</el-button>
+        </template>
+      </el-dialog>
+
       <template #footer>
         <el-button @click="closePartDialog">取消</el-button>
         <el-button type="primary" @click="confirmPartSelection" :disabled="!selectedPartForAdd">
@@ -251,22 +360,22 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import {
   getSelections, getSelection, createSelection, updateSelection,
   deleteSelection, submitSelection, outboundSelection, cancelSelection
 } from '@/api/selections'
 import { getProjects } from '@/api/projects'
-import { getParts } from '@/api/parts'
+import { usePartSearch } from '@/composables/usePartSearch'
 
 const route = useRoute()
 const router = useRouter()
 
 const selections = ref([])
 const projects = ref([])
-const allParts = ref([])
 
 // Tree state
 const treeRef = ref(null)
@@ -280,12 +389,59 @@ const loadingSelections = ref(false)
 const showNewPlanPopover = ref(false)
 const newPlanForm = ref({ name: '', projectId: '' })
 
-// Part dialog
+// Part dialog state
 const showPartDialog = ref(false)
-const partFilter = ref('')
 const selectedPartForAdd = ref(null)
 const currentItem = ref(null)
 const itemForm = ref({ requiredQty: 1 })
+
+// Dialog search/filter — use shared composable
+const {
+  keyword,
+  categoryPath,
+  minQty,
+  maxQty,
+  searching,
+  results,
+  template,
+  updateTemplateFromCategory,
+  activeFilters,
+  availableParams,
+  showFilterModal,
+  editingParam,
+  editingFilterKey,
+  filterValue,
+  categoryTree,
+  loadCategories,
+  doSearch,
+  resetFilters,
+  formatFilterValue,
+  handleAddFilter,
+  removeFilter,
+  confirmFilter
+} = usePartSearch()
+
+// Category tree selection state
+const selectedCategoryId = ref(null)
+const selectedCategoryName = ref(null)  // Store name directly for button display
+const showCategoryPopover = ref(false)
+const categoryTreeRef = ref(null)
+
+// Handle tree node click → update composable template + category path for search
+const onCategoryNodeClick = (data) => {
+  selectedCategoryId.value = data.id
+  selectedCategoryName.value = data.name  // Store name directly
+  categoryPath.value = data.path || data.id  // Set for search filtering
+  updateTemplateFromCategory(data.id)
+}
+
+// Clear category selection
+const clearCategory = () => {
+  selectedCategoryId.value = null
+  selectedCategoryName.value = null
+  categoryPath.value = null
+  updateTemplateFromCategory(null)
+}
 
 // Outbound dialog
 const showOutboundDialog = ref(false)
@@ -325,17 +481,6 @@ const totalOutbound = computed(() => currentPlan.value?.items?.reduce((s, i) => 
 const totalPending = computed(() => currentPlan.value?.items?.reduce((s, i) => s + (i.pendingQty || 0), 0) || 0)
 const totalRequired = computed(() => currentPlan.value?.items?.reduce((s, i) => s + (i.requiredQty || 0), 0) || 0)
 
-const filteredParts = computed(() => {
-  if (!partFilter.value) return allParts.value
-  const f = partFilter.value.toLowerCase()
-  return allParts.value.filter(p =>
-    p.name?.toLowerCase().includes(f) ||
-    p.model?.toLowerCase().includes(f) ||
-    p.brand?.toLowerCase().includes(f) ||
-    p.category?.toLowerCase().includes(f)
-  )
-})
-
 // Watch tree search
 watch(treeSearch, (val) => {
   treeRef.value?.filter(val)
@@ -343,7 +488,7 @@ watch(treeSearch, (val) => {
 
 // Lifecycle
 onMounted(async () => {
-  await Promise.all([loadSelections(), loadProjects(), loadParts()])
+  await Promise.all([loadSelections(), loadProjects()])
   // Handle query params from navigation
   const { projectId, selectionId } = route.query
   if (selectionId) {
@@ -380,14 +525,6 @@ const loadProjects = async () => {
   }
 }
 
-const loadParts = async () => {
-  try {
-    const res = await getParts()
-    allParts.value = res.data || []
-  } catch (e) {
-    console.error(e)
-  }
-}
 
 // Tree helpers
 const filterTreeNode = (value, data) => {
@@ -512,12 +649,17 @@ const deletePlan = async (plan) => {
 }
 
 // Item management
-const showAddItem = () => {
+const showAddItem = async () => {
   currentItem.value = null
   selectedPartForAdd.value = null
   itemForm.value = { requiredQty: 1 }
-  partFilter.value = ''
+  // Load categories BEFORE opening dialog, force reload
+  await loadCategories(true)
+  resetFilters()
+  selectedCategoryId.value = null
   showPartDialog.value = true
+  // Initial search to populate results
+  await doSearch()
 }
 
 const selectPartRow = (part) => {
@@ -591,8 +733,11 @@ const selectPart = async (item) => {
   currentItem.value = item
   selectedPartForAdd.value = null
   itemForm.value = { requiredQty: item.requiredQty || 1 }
-  partFilter.value = ''
+  await loadCategories()
+  resetFilters()
+  selectedCategoryId.value = null
   showPartDialog.value = true
+  await doSearch()
 }
 
 // Outbound
@@ -659,23 +804,11 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
 
 <style scoped>
 .selection-container {
-  padding: 20px;
-  height: calc(100vh - 80px);
-  display: flex;
-  flex-direction: column;
-}
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.header h2 {
-  margin: 0;
+  height: calc(100vh - 60px);
 }
 .main-layout {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex: 1;
   overflow: hidden;
 }
@@ -684,7 +817,7 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
   min-width: 280px;
   background: #fff;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -693,7 +826,7 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
   flex: 1;
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
 }
 .tree-scrollbar {
@@ -780,6 +913,52 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
 .part-filter {
   margin-bottom: 10px;
 }
+.part-search-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+.filter-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.filter-tag {
+  cursor: pointer;
+}
+.filter-hint {
+  color: #999;
+  font-size: 12px;
+}
+.specs-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.spec-chip {
+  background: #f0f2f5;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #666;
+}
+.more-specs {
+  color: #409eff;
+  font-size: 11px;
+}
+.no-specs {
+  color: #999;
+}
+.number-range-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .add-form {
   margin-top: 15px;
   padding: 15px;
@@ -796,11 +975,24 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
 }
 .qty-low { color: #f56c6c; }
 
+.unit-label {
+  margin-left: 8px;
+  color: #999;
+  font-size: 12px;
+}
+
 /* Project view */
 .project-view {
-  /* use right-panel styles */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .plan-view {
-  /* use right-panel styles */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
 }
 </style>

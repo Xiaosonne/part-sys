@@ -8,7 +8,7 @@
         placeholder="搜索名称、型号..."
         clearable
         style="width: 180px;"
-        @keyup.enter="doSearch"
+        @keyup.enter="doSearchWithCategoryPath"
       />
 
       <!-- Active Filter Tags -->
@@ -64,7 +64,7 @@
       <span class="qty-label">库存</span>
 
       <!-- Search & Reset -->
-      <el-button type="primary" @click="doSearch" :loading="searching" size="small">搜索</el-button>
+      <el-button type="primary" @click="doSearchWithCategoryPath" :loading="searching" size="small">搜索</el-button>
       <el-button @click="resetFilters" size="small">重置</el-button>
     </div>
 
@@ -247,11 +247,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { searchParts } from '@/api/parts'
 import { getPartFiles, deleteFile } from '@/api/files'
+import { usePartSearch } from '@/composables/usePartSearch'
 
 const props = defineProps({
   template: {
@@ -264,173 +265,58 @@ const props = defineProps({
   }
 })
 
-// State
-const keyword = ref('')
-const minQty = ref(null)
-const maxQty = ref(null)
-const searching = ref(false)
-const results = ref([])
-const showDetailDialog = ref(false)
-const selectedPart = ref(null)
+// Use shared composable (skip its internal template management — we use props.template)
+const {
+  keyword,
+  minQty,
+  maxQty,
+  searching,
+  results,
+  activeFilters,
+  availableParams: composableAvailableParams,
+  showFilterModal,
+  editingParam,
+  editingFilterKey,
+  filterValue,
+  doSearch,
+  resetFilters,
+  formatFilterValue,
+  handleAddFilter,
+  removeFilter,
+  confirmFilter,
+  resetFilterValue
+} = usePartSearch()
 
-// Part files
-const partFiles = ref([])
-const filesLoading = ref(false)
-
-// Active filters (shown as tags)
-const activeFilters = ref([])
-
-// Filter editor modal
-const showFilterModal = ref(false)
-const editingParam = ref(null)
-const editingFilterKey = ref(null) // null = new, else = editing existing
-const filterValue = reactive({
-  string: '',
-  min: null,
-  max: null,
-  selected: null,
-  bool: false
-})
-
-// Computed: available params for adding (exclude already filtered ones)
+// SpecFilterPanel receives template from parent props (not computed from category)
 const availableParams = computed(() => {
   if (!props.template?.paramDefs) return []
   const activeKeys = new Set(activeFilters.value.map(f => f.key))
   return props.template.paramDefs.filter(p => !activeKeys.has(p.key))
 })
 
-// Format filter value for display in tag
-const formatFilterValue = (filter) => {
-  switch (filter.type) {
-    case 'string':
-      return filter.value || ''
-    case 'number-range':
-      if (filter.value.min !== null && filter.value.max !== null) {
-        return `${filter.value.min}-${filter.value.max}${filter.unit || ''}`
-      } else if (filter.value.min !== null) {
-        return `≥${filter.value.min}${filter.unit || ''}`
-      } else if (filter.value.max !== null) {
-        return `≤${filter.value.max}${filter.unit || ''}`
-      }
-      return ''
-    case 'select':
-      return filter.value || ''
-    case 'boolean':
-      return filter.value ? '是' : '否'
-    default:
-      return filter.value || ''
+// Override doSearch to use props.categoryPath
+const doSearchWithCategoryPath = async () => {
+  searching.value = true
+  try {
+    const res = await searchParts({
+      keyword: keyword.value || null,
+      categoryPath: props.categoryPath,
+      specFilters: activeFilters.value.length > 0 ? buildSpecFiltersList() : null,
+      minAvailableQty: minQty.value || null,
+      maxAvailableQty: maxQty.value || null
+    })
+    results.value = res.data || []
+  } catch (error) {
+    ElMessage.error('搜索失败: ' + (error.message || '未知错误'))
+    results.value = []
+  } finally {
+    searching.value = false
   }
 }
 
-// Add new filter
-const handleAddFilter = (param) => {
-  editingFilterKey.value = null
-  editingParam.value = param
-  resetFilterValue()
-  showFilterModal.value = true
-}
-
-// Edit existing filter
-const editFilter = (filter) => {
-  editingFilterKey.value = filter.key
-  editingParam.value = props.template.paramDefs.find(p => p.key === filter.key)
-  filterValue.string = filter.value?.string || ''
-  filterValue.min = filter.value?.min ?? null
-  filterValue.max = filter.value?.max ?? null
-  filterValue.selected = filter.value?.selected ?? null
-  filterValue.bool = filter.value?.bool ?? false
-  showFilterModal.value = true
-}
-
-// Remove filter
-const removeFilter = (key) => {
-  activeFilters.value = activeFilters.value.filter(f => f.key !== key)
-}
-
-// Reset filter value object
-const resetFilterValue = () => {
-  filterValue.string = ''
-  filterValue.min = null
-  filterValue.max = null
-  filterValue.selected = null
-  filterValue.bool = false
-}
-
-// Confirm filter in modal
-const confirmFilter = () => {
-  if (!editingParam.value) return
-
-  const param = editingParam.value
-  let value = null
-  let isValid = false
-
-  switch (param.dataType) {
-    case 'string':
-      if (filterValue.string && filterValue.string.trim()) {
-        value = filterValue.string.trim()
-        isValid = true
-      }
-      break
-    case 'number':
-      if (filterValue.min !== null || filterValue.max !== null) {
-        value = { min: filterValue.min, max: filterValue.max }
-        isValid = true
-      }
-      break
-    case 'select':
-      if (filterValue.selected) {
-        value = filterValue.selected
-        isValid = true
-      }
-      break
-    case 'boolean':
-      value = filterValue.bool
-      isValid = true
-      break
-  }
-
-  if (!isValid) {
-    ElMessage.warning('请设置有效的过滤值')
-    return
-  }
-
-  // Remove existing if editing
-  if (editingFilterKey.value) {
-    activeFilters.value = activeFilters.value.filter(f => f.key !== editingFilterKey.value)
-  }
-
-  // Add new/updated filter
-  activeFilters.value.push({
-    key: param.key,
-    label: param.label,
-    type: param.dataType === 'number' ? 'number-range' : param.dataType,
-    value: param.dataType === 'number'
-      ? { min: filterValue.min, max: filterValue.max }
-      : param.dataType === 'select'
-        ? filterValue.selected
-        : param.dataType === 'boolean'
-          ? filterValue.bool
-          : filterValue.string,
-    unit: param.unit,
-    options: param.options
-  })
-
-  showFilterModal.value = false
-}
-
-// Reset filters
-const resetFilters = () => {
-  keyword.value = ''
-  minQty.value = null
-  maxQty.value = null
-  activeFilters.value = []
-  results.value = []
-}
-
-// Build spec filters list for API
+// Build spec filters list for API (same logic as composable)
 const buildSpecFiltersList = () => {
   const list = []
-
   activeFilters.value.forEach(filter => {
     switch (filter.type) {
       case 'string':
@@ -456,32 +342,27 @@ const buildSpecFiltersList = () => {
         break
     }
   })
-
   return list
 }
 
-// Search
-const doSearch = async () => {
-  searching.value = true
-  try {
-    const specFiltersList = buildSpecFiltersList()
+// Detail dialog state
+const showDetailDialog = ref(false)
+const selectedPart = ref(null)
 
-    const searchParams = {
-      keyword: keyword.value || null,
-      categoryPath: props.categoryPath,
-      specFilters: specFiltersList.length > 0 ? specFiltersList : null,
-      minAvailableQty: minQty.value || null,
-      maxAvailableQty: maxQty.value || null
-    }
+// Part files
+const partFiles = ref([])
+const filesLoading = ref(false)
 
-    const res = (await searchParts(searchParams)).data
-    results.value = res || []
-  } catch (error) {
-    ElMessage.error('搜索失败: ' + (error.message || '未知错误'))
-    results.value = []
-  } finally {
-    searching.value = false
-  }
+// Edit existing filter (unique to SpecFilterPanel — uses props.template)
+const editFilter = (filter) => {
+  editingFilterKey.value = filter.key
+  editingParam.value = props.template.paramDefs.find(p => p.key === filter.key)
+  filterValue.string = filter.value?.string || ''
+  filterValue.min = filter.value?.min ?? null
+  filterValue.max = filter.value?.max ?? null
+  filterValue.selected = filter.value?.selected ?? null
+  filterValue.bool = filter.value?.bool ?? false
+  showFilterModal.value = true
 }
 
 // View part detail
