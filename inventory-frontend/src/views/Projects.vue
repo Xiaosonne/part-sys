@@ -8,13 +8,16 @@
             <div v-if="projectDetails.has(row.id)">
               <div v-if="projectDetails.get(row.id).length === 0" style="color: #909399;">暂无选型计划</div>
               <div v-for="selection in projectDetails.get(row.id)" :key="selection.id" style="margin-bottom: 20px;">
-                <h4 style="margin: 10px 0;">{{ selection.name }}</h4>
+                <div style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
+                  <h4 style="margin: 0;">{{ selection.name }}</h4>
+                  <el-tag size="small" :type="statusType(selection.status)">{{ statusText(selection.status) }}</el-tag>
+                </div>
                 <el-table :data="selection.items" size="small" style="width: 100%;">
                   <el-table-column prop="partName" label="配件名称" />
-                  <el-table-column prop="requiredQty" label="需求数量" width="100" />
-                  <el-table-column prop="totalQty" label="当前库存" width="100" />
-                  <el-table-column prop="lockedQty" label="占用库存" width="100" />
-                  <el-table-column prop="availableQty" label="剩余库存" width="100" />
+                  <el-table-column prop="requiredQty" label="需求数量" width="90" align="center" />
+                  <el-table-column prop="lockedQty" label="已锁定" width="80" align="center" />
+                  <el-table-column prop="outboundQty" label="已出库" width="80" align="center" />
+                  <el-table-column prop="pendingQty" label="待采购" width="80" align="center" />
                 </el-table>
               </div>
             </div>
@@ -65,19 +68,16 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getProjects, createProject, updateProject, deleteProject as deleteProjectApi } from '@/api/projects'
 import { getSelections } from '@/api/selections'
-import { getParts } from '@/api/parts'
 
 const router = useRouter()
 const projects = ref([])
 const showDialog = ref(false)
 const editingId = ref(null)
 const form = ref({ name: '', type: 'project', parentId: null })
-const parts = ref([])
 const projectDetails = ref(new Map())
 
 onMounted(async () => {
   await loadProjects()
-  await loadParts()
 })
 
 const loadProjects = async () => {
@@ -86,15 +86,6 @@ const loadProjects = async () => {
     projects.value = res.data
   } catch (error) {
     ElMessage.error('Failed to load projects')
-  }
-}
-
-const loadParts = async () => {
-  try {
-    const res = await getParts()
-    parts.value = res.data
-  } catch (error) {
-    ElMessage.error('Failed to load parts')
   }
 }
 
@@ -111,16 +102,14 @@ const loadProjectDetails = async (projectId) => {
     const selections = res.data.map(selection => ({
       id: selection.id,
       name: selection.name,
-      items: selection.items.map(item => {
-        const part = parts.value.find(p => p.id === item.selectedPartId)
-        return {
-          partName: part?.name || `配件ID: ${item.selectedPartId} (已删除)`,
-          requiredQty: item.requiredQty,
-          totalQty: part?.totalQty || 0,
-          lockedQty: part?.lockedQty || 0,
-          availableQty: part?.availableQty || 0
-        }
-      })
+      status: selection.status,
+      items: selection.items.map(item => ({
+        partName: item.partName || `配件ID: ${item.selectedPartId} (已删除)`,
+        requiredQty: item.requiredQty,
+        lockedQty: item.lockedQty || 0,
+        outboundQty: item.outboundQty || 0,
+        pendingQty: item.pendingQty || 0
+      }))
     }))
     projectDetails.value.set(projectId, selections)
   } catch (error) {
@@ -167,5 +156,15 @@ const deleteProject = async (id) => {
       ElMessage.error('Failed to delete project')
     }
   }
+}
+
+const statusType = (status) => {
+  const map = { Draft: 'info', Submitted: 'warning', Completed: 'success', Cancelled: 'danger', 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }
+  return map[status] || 'info'
+}
+
+const statusText = (status) => {
+  const map = { Draft: '草稿', Submitted: '已提交', Completed: '已完成', Cancelled: '已取消', 0: '草稿', 1: '已提交', 2: '已完成', 3: '已取消' }
+  return map[status] || status
 }
 </script>
