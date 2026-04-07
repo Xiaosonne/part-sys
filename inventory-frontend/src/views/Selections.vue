@@ -3,144 +3,192 @@
     <!-- Header -->
     <div class="header">
       <h2>选型中心</h2>
-      <el-button type="primary" @click="createNewPlan">新建选型单</el-button>
     </div>
 
-    <!-- Plan List -->
-    <div v-if="!currentPlan" class="plan-list">
-      <el-table :data="selections" border stripe>
-        <el-table-column prop="name" label="名称" width="180" />
-        <el-table-column prop="projectId" label="项目ID" width="200" />
-        <el-table-column prop="status" label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180">
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="配件项" width="100">
-          <template #default="{ row }">
-            {{ row.items?.length || 0 }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" min-width="280">
-          <template #default="{ row }">
-            <el-button size="small" @click="openPlan(row)">查看</el-button>
-            <el-button size="small" type="warning" @click="submitPlan(row)" :disabled="row.status !== 'Draft' && row.status !== 0">提交</el-button>
-            <el-button size="small" type="danger" @click="cancelPlan(row)" :disabled="row.status !== 'Submitted' && row.status !== 1">取消</el-button>
-            <el-button size="small" type="danger" plain @click="deletePlan(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    <!-- Two-column layout -->
+    <div class="main-layout">
+      <!-- Left: Project-Selection Tree -->
+      <div class="left-panel">
+        <el-input v-model="treeSearch" placeholder="搜索项目/选型" prefix-icon="Search" clearable style="margin-bottom: 10px;" />
 
-    <!-- Plan Detail / Edit -->
-    <div v-else class="plan-detail">
-      <div class="detail-header">
-        <el-button @click="closePlan">返回列表</el-button>
-        <h3>{{ isNewPlan ? '新建选型单' : currentPlan.name }}</h3>
-        <el-tag :type="statusType(currentPlan.status)">{{ statusText(currentPlan.status) }}</el-tag>
+        <!-- Create new selection -->
+        <el-popover placement="right" :width="300" trigger="click" v-model:visible="showNewPlanPopover">
+          <template #reference>
+            <el-button type="primary" size="small" style="width: 100%; margin-bottom: 10px;">+ 新建选型单</el-button>
+          </template>
+          <el-form :model="newPlanForm" label-width="80px" size="small">
+            <el-form-item label="名称">
+              <el-input v-model="newPlanForm.name" placeholder="选型单名称" />
+            </el-form-item>
+            <el-form-item label="所属项目">
+              <el-select v-model="newPlanForm.projectId" placeholder="选择项目" filterable style="width: 100%;">
+                <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" size="small" @click="saveNewPlan" style="width: 100%;">创建</el-button>
+            </el-form-item>
+          </el-form>
+        </el-popover>
+
+        <!-- Tree -->
+        <el-scrollbar class="tree-scrollbar">
+          <el-tree
+            ref="treeRef"
+            :data="treeData"
+            :props="{ label: 'name', children: 'children' }"
+            :expand-on-click-node="true"
+            :default-expand-all="true"
+            node-key="id"
+            :current-node-key="currentNodeKey"
+            :filter-node-method="filterTreeNode"
+            @node-click="onTreeNodeClick"
+            highlight-current
+            class="selection-tree"
+          >
+            <template #default="{ node, data }">
+              <span class="tree-node">
+                <span v-if="data.type === 'project'" class="node-icon">📁</span>
+                <span v-else class="node-icon">📋</span>
+                <span class="node-label">{{ node.label }}</span>
+                <el-tag v-if="data.type === 'selection'" size="small" :type="statusType(data.status)" style="margin-left: 6px;">
+                  {{ statusText(data.status) }}
+                </el-tag>
+              </span>
+            </template>
+          </el-tree>
+        </el-scrollbar>
       </div>
 
-      <!-- Plan Info -->
-      <el-card class="info-card" v-if="!isNewPlan">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="名称">{{ currentPlan.name }}</el-descriptions-item>
-          <el-descriptions-item label="项目">{{ currentPlan.projectId }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag :type="statusType(currentPlan.status)">{{ statusText(currentPlan.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">{{ formatDate(currentPlan.createdAt) }}</el-descriptions-item>
-        </el-descriptions>
-      </el-card>
+      <!-- Right: Dynamic Content -->
+      <div class="right-panel">
+        <!-- Empty state -->
+        <el-empty v-if="!currentProject && !currentPlan" description="从左侧选择一个项目或选型单" />
 
-      <!-- Create New Plan Form -->
-      <el-card v-if="isNewPlan" class="form-card">
-        <el-form :model="newPlanForm" label-width="100px">
-          <el-form-item label="名称">
-            <el-input v-model="newPlanForm.name" placeholder="选型单名称" />
-          </el-form-item>
-          <el-form-item label="项目ID">
-            <el-select v-model="newPlanForm.projectId" placeholder="选择项目" filterable>
-              <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="saveNewPlan">创建</el-button>
-            <el-button @click="closePlan">取消</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
+        <!-- Project selected: show selection list for that project -->
+        <div v-else-if="currentProject && !currentPlan" class="project-view">
+          <div class="view-header">
+            <h3>{{ currentProject.name }}</h3>
+            <span class="subtitle">选型单列表</span>
+          </div>
 
-      <!-- Items -->
-      <el-card v-if="!isNewPlan" class="items-card">
-        <template #header>
-          <div class="card-header">
-            <span>选型配件</span>
-            <el-button type="primary" size="small" @click="showAddItem" :disabled="currentPlan.status !== 'Draft' && currentPlan.status !== 0">
-              添加配件
+          <el-table :data="projectSelections" border stripe v-loading="loadingSelections">
+            <el-table-column prop="name" label="选型单名称" width="180" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="创建时间" width="170">
+              <template #default="{ row }">
+                {{ formatDate(row.createdAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="配件项" width="80">
+              <template #default="{ row }">
+                {{ row.items?.length || 0 }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" min-width="200">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" plain @click="openPlan(row)">查看详情</el-button>
+                <el-button size="small" type="danger" plain @click="deletePlan(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-empty v-if="projectSelections.length === 0" description="该项目暂无选型单" />
+        </div>
+
+        <!-- Selection selected: show detail + items + summary -->
+        <div v-else-if="currentPlan" class="plan-view">
+          <div class="view-header">
+            <el-button size="small" @click="backToProject" style="margin-right: 10px;">← 返回</el-button>
+            <div>
+              <h3>{{ currentPlan.name }}</h3>
+              <span class="subtitle">{{ getProjectName(currentPlan.projectId) }}</span>
+            </div>
+            <el-tag :type="statusType(currentPlan.status)" style="margin-left: auto;">{{ statusText(currentPlan.status) }}</el-tag>
+          </div>
+
+          <!-- Summary Stats -->
+          <div class="stats-bar">
+            <div class="stat-item">
+              <div class="stat-value">{{ currentPlan.items?.length || 0 }}</div>
+              <div class="stat-label">配件项</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value qty-locked">{{ totalLocked }}</div>
+              <div class="stat-label">已锁定</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value qty-outbound">{{ totalOutbound }}</div>
+              <div class="stat-label">已出库</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value qty-pending">{{ totalPending }}</div>
+              <div class="stat-label">待采购</div>
+            </div>
+            <div class="stat-item stat-total">
+              <div class="stat-value">{{ totalRequired }}</div>
+              <div class="stat-label">需求总数</div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="plan-actions">
+            <el-button type="primary" @click="showAddItem" :disabled="currentPlan.status !== 'Draft' && currentPlan.status !== 0">
+              + 添加配件
+            </el-button>
+            <el-button type="warning" @click="submitPlan(currentPlan)" :disabled="(currentPlan.status !== 'Draft' && currentPlan.status !== 0) || !currentPlan.items?.length">
+              提交选型单
+            </el-button>
+            <el-button type="danger" plain @click="cancelPlan(currentPlan)" :disabled="currentPlan.status !== 'Submitted' && currentPlan.status !== 1">
+              取消选型单
             </el-button>
           </div>
-        </template>
 
-        <el-table :data="currentPlan.items" border stripe>
-          <el-table-column prop="partName" label="配件名称" width="150" />
-          <el-table-column prop="category" label="分类" width="120" />
-          <el-table-column prop="requiredQty" label="需求数量" width="100" />
-          <el-table-column prop="lockedQty" label="已锁定" width="90">
-            <template #default="{ row }">
-              <span class="qty-locked">{{ row.lockedQty || 0 }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="outboundQty" label="已出库" width="90">
-            <template #default="{ row }">
-              <span class="qty-outbound">{{ row.outboundQty || 0 }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="pendingQty" label="待采购" width="90">
-            <template #default="{ row }">
-              <span class="qty-pending">{{ row.pendingQty || 0 }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="120">
-            <template #default="{ row }">
-              <el-tag size="small" :type="itemStatusType(row)">{{ itemStatusText(row) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" min-width="200">
-            <template #default="{ row, $index }">
-              <template v-if="currentPlan.status === 'Draft' || currentPlan.status === 0">
-                <el-button size="small" @click="selectPart(row)">选择配件</el-button>
-                <el-button size="small" type="danger" plain @click="removeItem($index)">删除</el-button>
+          <!-- Items Table -->
+          <el-table :data="currentPlan.items" border stripe class="items-table">
+            <el-table-column prop="partName" label="配件名称" min-width="150" />
+            <el-table-column prop="category" label="分类" width="120" />
+            <el-table-column prop="requiredQty" label="需求数量" width="90" align="center" />
+            <el-table-column prop="lockedQty" label="已锁定" width="90" align="center">
+              <template #default="{ row }">
+                <span class="qty-locked">{{ row.lockedQty || 0 }}</span>
               </template>
-              <template v-else-if="currentPlan.status === 'Submitted' || currentPlan.status === 1">
-                <el-button size="small" type="success" @click="showOutbound(row)" :disabled="row.lockedQty <= 0">
-                  出库
-                </el-button>
+            </el-table-column>
+            <el-table-column prop="outboundQty" label="已出库" width="90" align="center">
+              <template #default="{ row }">
+                <span class="qty-outbound">{{ row.outboundQty || 0 }}</span>
               </template>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <!-- Summary -->
-        <div class="items-summary" v-if="currentPlan.items?.length > 0">
-          <span>总计: {{ currentPlan.items.length }} 项</span>
-          <span>已锁定: {{ totalLocked }}</span>
-          <span>已出库: {{ totalOutbound }}</span>
-          <span>待采购: {{ totalPending }}</span>
+            </el-table-column>
+            <el-table-column prop="pendingQty" label="待采购" width="90" align="center">
+              <template #default="{ row }">
+                <span class="qty-pending">{{ row.pendingQty || 0 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="110" align="center">
+              <template #default="{ row }">
+                <el-tag size="small" :type="itemStatusType(row)">{{ itemStatusText(row) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="160" align="center">
+              <template #default="{ row, $index }">
+                <template v-if="currentPlan.status === 'Draft' || currentPlan.status === 0">
+                  <el-button size="small" @click="selectPart(row)">更换</el-button>
+                  <el-button size="small" type="danger" plain @click="removeItem($index)">删除</el-button>
+                </template>
+                <template v-else-if="currentPlan.status === 'Submitted' || currentPlan.status === 1">
+                  <el-button size="small" type="success" @click="showOutbound(row)" :disabled="row.lockedQty <= 0">
+                    出库
+                  </el-button>
+                </template>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
-
-        <!-- Submit / Cancel Actions -->
-        <div class="actions" v-if="(currentPlan.status === 'Draft' || currentPlan.status === 0) && currentPlan.items?.length > 0">
-          <el-button type="primary" size="large" @click="submitPlan(currentPlan)">提交选型单</el-button>
-        </div>
-        <div class="actions" v-if="currentPlan.status === 'Submitted' || currentPlan.status === 1">
-          <el-button type="warning" size="large" @click="cancelPlan(currentPlan)">取消选型单</el-button>
-        </div>
-      </el-card>
+      </div>
     </div>
 
     <!-- Select Part Dialog (add new OR re-select existing) -->
@@ -153,18 +201,17 @@
         <el-table-column prop="model" label="型号" width="120" />
         <el-table-column prop="brand" label="品牌" width="100" />
         <el-table-column prop="category" label="分类" width="100" />
-        <el-table-column prop="availableQty" label="可用库存" width="100">
+        <el-table-column prop="availableQty" label="可用库存" width="100" align="center">
           <template #default="{ row }">
             <span :class="{ 'qty-low': row.availableQty < 5 }">{{ row.availableQty }}</span>
           </template>
         </el-table-column>
       </el-table>
-      <!-- Selected part info (for both add and re-select) -->
-      <div v-if="selectedPartForAdd" class="add-form" style="margin-top: 15px; padding: 15px; background: #f5f7fa; border-radius: 4px;">
-        <div style="font-weight: bold; margin-bottom: 10px;">已选: {{ selectedPartForAdd.name }}
-          <span style="color: #666; font-weight: normal;">{{ selectedPartForAdd.model }} / {{ selectedPartForAdd.brand }} / {{ selectedPartForAdd.category }}</span>
+      <div v-if="selectedPartForAdd" class="add-form">
+        <div class="selected-info">
+          已选: <strong>{{ selectedPartForAdd.name }}</strong>
+          <span class="muted">{{ selectedPartForAdd.model }} / {{ selectedPartForAdd.brand }} / {{ selectedPartForAdd.category }}</span>
         </div>
-        <!-- Only show qty for new items -->
         <el-form :model="itemForm" label-width="100px" v-if="!currentItem">
           <el-form-item label="需求数量">
             <el-input-number v-model="itemForm.requiredQty" :min="1" :max="9999" />
@@ -191,9 +238,6 @@
         <el-form-item label="出库数量">
           <el-input-number v-model="outboundForm.qty" :min="1" :max="outboundForm.availableQty" />
         </el-form-item>
-        <el-form-item label="领用人ID">
-          <el-input v-model="outboundForm.recipientId" />
-        </el-form-item>
         <el-form-item label="领用人">
           <el-input v-model="outboundForm.recipientName" />
         </el-form-item>
@@ -207,42 +251,75 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getSelections, getSelection, createSelection, updateSelection,
-  deleteSelection, submitSelection, outboundSelection, cancelSelection, matchParts
+  deleteSelection, submitSelection, outboundSelection, cancelSelection
 } from '@/api/selections'
 import { getProjects } from '@/api/projects'
 import { getParts } from '@/api/parts'
 
 const selections = ref([])
 const projects = ref([])
-const currentPlan = ref(null)
-const isNewPlan = ref(false)
 const allParts = ref([])
 
-// New plan form
+// Tree state
+const treeRef = ref(null)
+const treeSearch = ref('')
+const currentNodeKey = ref(null)
+const currentProject = ref(null)
+const currentPlan = ref(null)
+const loadingSelections = ref(false)
+
+// New plan popover
+const showNewPlanPopover = ref(false)
 const newPlanForm = ref({ name: '', projectId: '' })
 
-// Item dialog
-const showItemDialog = ref(false)
-const itemForm = ref({ partName: '', category: '', requiredQty: 1 })
-
-// Part dialog (unified add + select)
+// Part dialog
 const showPartDialog = ref(false)
 const partFilter = ref('')
-const selectedPartForAdd = ref(null) // 在添加模式时选中的配件
-const currentItem = ref(null) // 在重选模式时，当前被修改的item
+const selectedPartForAdd = ref(null)
+const currentItem = ref(null)
+const itemForm = ref({ requiredQty: 1 })
 
 // Outbound dialog
 const showOutboundDialog = ref(false)
-const outboundForm = ref({ itemId: '', partName: '', qty: 1, availableQty: 0, recipientId: '', recipientName: '' })
+const outboundForm = ref({ itemId: '', partName: '', qty: 1, availableQty: 0, recipientName: '' })
 
-// Computed
+// Computed: build tree data from projects + selections
+const treeData = computed(() => {
+  return projects.value.map(project => {
+    const projectSelections = selections.value.filter(s => s.projectId === project.id)
+    return {
+      id: 'proj_' + project.id,
+      name: project.name,
+      type: 'project',
+      children: projectSelections.map(s => ({
+        id: 'sel_' + s.id,
+        name: s.name,
+        type: 'selection',
+        status: s.status,
+        projectId: s.projectId,
+        _selection: s
+      }))
+    }
+  })
+})
+
+// Computed: selections for currently selected project
+const projectSelections = computed(() => {
+  if (!currentProject.value) return []
+  return selections.value
+    .filter(s => s.projectId === currentProject.value.id)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+})
+
+// Computed: summary stats
 const totalLocked = computed(() => currentPlan.value?.items?.reduce((s, i) => s + (i.lockedQty || 0), 0) || 0)
 const totalOutbound = computed(() => currentPlan.value?.items?.reduce((s, i) => s + (i.outboundQty || 0), 0) || 0)
 const totalPending = computed(() => currentPlan.value?.items?.reduce((s, i) => s + (i.pendingQty || 0), 0) || 0)
+const totalRequired = computed(() => currentPlan.value?.items?.reduce((s, i) => s + (i.requiredQty || 0), 0) || 0)
 
 const filteredParts = computed(() => {
   if (!partFilter.value) return allParts.value
@@ -255,14 +332,17 @@ const filteredParts = computed(() => {
   )
 })
 
-// Lifecycle
-onMounted(async () => {
-  await loadSelections()
-  await loadProjects()
-  await loadParts()
+// Watch tree search
+watch(treeSearch, (val) => {
+  treeRef.value?.filter(val)
 })
 
-// Methods
+// Lifecycle
+onMounted(async () => {
+  await Promise.all([loadSelections(), loadProjects(), loadParts()])
+})
+
+// Data loading
 const loadSelections = async () => {
   try {
     const res = await getSelections()
@@ -290,24 +370,72 @@ const loadParts = async () => {
   }
 }
 
-const createNewPlan = () => {
-  currentPlan.value = {}
-  isNewPlan.value = true
+// Tree helpers
+const filterTreeNode = (value, data) => {
+  if (!value) return true
+  const f = value.toLowerCase()
+  return data.name?.toLowerCase().includes(f)
 }
 
+const getProjectName = (projectId) => {
+  return projects.value.find(p => p.id === projectId)?.name || projectId
+}
+
+// Tree click handler
+const onTreeNodeClick = async (data) => {
+  if (data.type === 'project') {
+    currentProject.value = { id: data.id.replace('proj_', ''), name: data.name }
+    currentPlan.value = null
+    currentNodeKey.value = data.id
+  } else {
+    // selection node
+    currentProject.value = null
+    await openPlan(data._selection)
+  }
+}
+
+// Navigation
+const backToProject = () => {
+  const projectId = currentPlan.value?.projectId
+  currentPlan.value = null
+  if (projectId) {
+    currentProject.value = projects.value.find(p => p.id === projectId) || null
+    if (currentProject.value) {
+      currentNodeKey.value = 'proj_' + projectId
+    }
+  }
+}
+
+// Plan operations
 const saveNewPlan = async () => {
   if (!newPlanForm.value.name || !newPlanForm.value.projectId) {
     ElMessage.warning('请填写名称和选择项目')
     return
   }
+  const planName = newPlanForm.value.name
+  const projectId = newPlanForm.value.projectId
   try {
     const res = await createSelection({
-      name: newPlanForm.value.name,
-      projectId: newPlanForm.value.projectId,
+      name: planName,
+      projectId: projectId,
       items: []
     })
-    isNewPlan.value = false
-    await openPlan(res.data)
+    showNewPlanPopover.value = false
+    newPlanForm.value = { name: '', projectId: '' }
+    await loadSelections()
+    // Navigate to the new plan
+    const newId = res.data?.id
+    if (newId) {
+      const created = selections.value.find(s => s.id === newId)
+      if (created) {
+        await openPlan(created)
+      }
+    } else {
+      const created = selections.value.find(s => s.name === planName && s.projectId === projectId)
+      if (created) {
+        await openPlan(created)
+      }
+    }
     ElMessage.success('创建成功')
   } catch (e) {
     ElMessage.error('创建失败')
@@ -318,16 +446,11 @@ const openPlan = async (plan) => {
   try {
     const res = await getSelection(plan.id)
     currentPlan.value = res.data
-    isNewPlan.value = false
+    currentNodeKey.value = 'sel_' + plan.id
+    currentProject.value = null
   } catch (e) {
     ElMessage.error('加载选型单失败')
   }
-}
-
-const closePlan = () => {
-  currentPlan.value = null
-  isNewPlan.value = false
-  newPlanForm.value = { name: '', projectId: '' }
 }
 
 const submitPlan = async (plan) => {
@@ -358,7 +481,7 @@ const cancelPlan = async (plan) => {
 
 const deletePlan = async (plan) => {
   try {
-    await ElMessageBox.confirm('确定删除选型单？', '警告', { type: 'warning' })
+    await ElMessageBox.confirm('确定删除该选型单？', '警告', { type: 'warning' })
     await deleteSelection(plan.id)
     ElMessage.success('已删除')
     await loadSelections()
@@ -417,14 +540,12 @@ const addItem = () => {
 const confirmPartSelection = () => {
   if (!selectedPartForAdd.value) return
   if (currentItem.value) {
-    // Re-select: update existing item's part
     currentItem.value.selectedPartId = selectedPartForAdd.value.id
     currentItem.value.partName = selectedPartForAdd.value.name
     currentItem.value.category = selectedPartForAdd.value.category || ''
     closePartDialog()
     saveItems()
   } else {
-    // Add new: same as addItem
     addItem()
   }
 }
@@ -446,7 +567,7 @@ const saveItems = async () => {
   }
 }
 
-// Part selection (re-select existing item's part)
+// Part re-select
 const selectPart = async (item) => {
   currentItem.value = item
   selectedPartForAdd.value = null
@@ -462,7 +583,6 @@ const showOutbound = (item) => {
     partName: item.partName,
     qty: 1,
     availableQty: item.lockedQty,
-    recipientId: '',
     recipientName: ''
   }
   showOutboundDialog.value = true
@@ -478,7 +598,7 @@ const doOutbound = async () => {
       currentPlan.value.id,
       outboundForm.value.itemId,
       outboundForm.value.qty,
-      outboundForm.value.recipientId,
+      '', // no recipientId needed
       outboundForm.value.recipientName
     )
     ElMessage.success(res.data?.message || '出库成功')
@@ -521,53 +641,147 @@ const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
 <style scoped>
 .selection-container {
   padding: 20px;
+  height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
 }
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
-.plan-list, .plan-detail {
+.header h2 {
+  margin: 0;
+}
+.main-layout {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  overflow: hidden;
+}
+.left-panel {
+  width: 280px;
+  min-width: 280px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.right-panel {
+  flex: 1;
   background: #fff;
   border-radius: 8px;
   padding: 20px;
+  overflow-y: auto;
 }
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 20px;
-}
-.detail-header h3 {
-  margin: 0;
+.tree-scrollbar {
   flex: 1;
+  overflow-y: auto;
 }
-.info-card, .form-card, .items-card {
+.selection-tree {
+  background: transparent;
+}
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.node-icon {
+  font-size: 14px;
+}
+.node-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Views */
+.view-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
 }
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.view-header h3 {
+  margin: 0;
 }
-.items-summary {
+.subtitle {
+  color: #999;
+  font-size: 13px;
+}
+
+/* Stats bar */
+.stats-bar {
   display: flex;
-  gap: 20px;
+  gap: 24px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf0 100%);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.stat-item {
+  text-align: center;
+  min-width: 60px;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+}
+.stat-label {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+.stat-total .stat-value {
+  color: #409eff;
+}
+.qty-locked { color: #409eff; }
+.qty-outbound { color: #67c23a; }
+.qty-pending { color: #e6a23c; }
+
+/* Plan actions */
+.plan-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Items table */
+.items-table {
+  margin-top: 0;
+}
+
+/* Part dialog */
+.part-filter {
+  margin-bottom: 10px;
+}
+.add-form {
+  margin-top: 15px;
   padding: 15px;
   background: #f5f7fa;
   border-radius: 4px;
-  margin-top: 15px;
 }
-.actions {
-  margin-top: 20px;
-  text-align: center;
+.selected-info {
+  margin-bottom: 10px;
+  font-size: 14px;
 }
-.part-filter {
-  margin-bottom: 15px;
+.selected-info .muted {
+  color: #888;
+  margin-left: 8px;
 }
-.qty-locked { color: #409eff; font-weight: bold; }
-.qty-outbound { color: #67c23a; font-weight: bold; }
-.qty-pending { color: #e6a23c; font-weight: bold; }
 .qty-low { color: #f56c6c; }
+
+/* Project view */
+.project-view {
+  /* use right-panel styles */
+}
+.plan-view {
+  /* use right-panel styles */
+}
 </style>
