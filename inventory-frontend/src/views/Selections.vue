@@ -29,8 +29,8 @@
         <el-table-column label="操作" min-width="280">
           <template #default="{ row }">
             <el-button size="small" @click="openPlan(row)">查看</el-button>
-            <el-button size="small" type="warning" @click="submitPlan(row)" :disabled="row.status !== 'Draft'">提交</el-button>
-            <el-button size="small" type="danger" @click="cancelPlan(row)" :disabled="row.status !== 'Submitted'">取消</el-button>
+            <el-button size="small" type="warning" @click="submitPlan(row)" :disabled="row.status !== 'Draft' && row.status !== 0">提交</el-button>
+            <el-button size="small" type="danger" @click="cancelPlan(row)" :disabled="row.status !== 'Submitted' && row.status !== 1">取消</el-button>
             <el-button size="small" type="danger" plain @click="deletePlan(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -80,7 +80,7 @@
         <template #header>
           <div class="card-header">
             <span>选型配件</span>
-            <el-button type="primary" size="small" @click="showAddItem" :disabled="currentPlan.status !== 'Draft'">
+            <el-button type="primary" size="small" @click="showAddItem" :disabled="currentPlan.status !== 'Draft' && currentPlan.status !== 0">
               添加配件
             </el-button>
           </div>
@@ -112,11 +112,11 @@
           </el-table-column>
           <el-table-column label="操作" min-width="200">
             <template #default="{ row, $index }">
-              <template v-if="currentPlan.status === 'Draft'">
+              <template v-if="currentPlan.status === 'Draft' || currentPlan.status === 0">
                 <el-button size="small" @click="selectPart(row)">选择配件</el-button>
                 <el-button size="small" type="danger" plain @click="removeItem($index)">删除</el-button>
               </template>
-              <template v-else-if="currentPlan.status === 'Submitted'">
+              <template v-else-if="currentPlan.status === 'Submitted' || currentPlan.status === 1">
                 <el-button size="small" type="success" @click="showOutbound(row)" :disabled="row.lockedQty <= 0">
                   出库
                 </el-button>
@@ -134,10 +134,10 @@
         </div>
 
         <!-- Submit / Cancel Actions -->
-        <div class="actions" v-if="currentPlan.status === 'Draft' && currentPlan.items?.length > 0">
+        <div class="actions" v-if="(currentPlan.status === 'Draft' || currentPlan.status === 0) && currentPlan.items?.length > 0">
           <el-button type="primary" size="large" @click="submitPlan(currentPlan)">提交选型单</el-button>
         </div>
-        <div class="actions" v-if="currentPlan.status === 'Submitted'">
+        <div class="actions" v-if="currentPlan.status === 'Submitted' || currentPlan.status === 1">
           <el-button type="warning" size="large" @click="cancelPlan(currentPlan)">取消选型单</el-button>
         </div>
       </el-card>
@@ -463,12 +463,12 @@ const doOutbound = async () => {
 
 // Status helpers
 const statusType = (status) => {
-  const map = { Draft: 'info', Submitted: 'warning', Completed: 'success', Cancelled: 'danger' }
+  const map = { Draft: 'info', Submitted: 'warning', Completed: 'success', Cancelled: 'danger', 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' }
   return map[status] || 'info'
 }
 
 const statusText = (status) => {
-  const map = { Draft: '草稿', Submitted: '已提交', Completed: '已完成', Cancelled: '已取消' }
+  const map = { Draft: '草稿', Submitted: '已提交', Completed: '已完成', Cancelled: '已取消', 0: '草稿', 1: '已提交', 2: '已完成', 3: '已取消' }
   return map[status] || status
 }
 
