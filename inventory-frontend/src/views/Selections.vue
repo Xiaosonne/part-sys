@@ -252,6 +252,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getSelections, getSelection, createSelection, updateSelection,
@@ -259,6 +260,9 @@ import {
 } from '@/api/selections'
 import { getProjects } from '@/api/projects'
 import { getParts } from '@/api/parts'
+
+const route = useRoute()
+const router = useRouter()
 
 const selections = ref([])
 const projects = ref([])
@@ -340,6 +344,21 @@ watch(treeSearch, (val) => {
 // Lifecycle
 onMounted(async () => {
   await Promise.all([loadSelections(), loadProjects(), loadParts()])
+  // Handle query params from navigation
+  const { projectId, selectionId } = route.query
+  if (selectionId) {
+    const sel = selections.value.find(s => s.id === selectionId)
+    if (sel) {
+      await openPlan(sel)
+    }
+  } else if (projectId) {
+    const proj = projects.value.find(p => p.id === projectId)
+    if (proj) {
+      currentProject.value = { id: proj.id, name: proj.name }
+      currentPlan.value = null
+      currentNodeKey.value = 'proj_' + proj.id
+    }
+  }
 })
 
 // Data loading
