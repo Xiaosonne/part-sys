@@ -1,40 +1,42 @@
+/* Ant Design Design Tokens */
 :root {
-  /* Primary - Tech Blue */
-  --color-primary: #2563eb;
-  --color-primary-dark: #1d4ed8;
-  --color-primary-light: #3b82f6;
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
+  /* Primary */
+  --color-primary: #1890ff;
+  --color-primary-dark: #096dd9;
+  --color-primary-light: #40a9ff;
+  --color-primary-50: #e6f7ff;
+  --color-primary-100: #bae7ff;
 
-  /* Backgrounds */
+  /* Backgrounds - Ant Design gray scheme */
   --color-bg: #ffffff;
-  --color-bg-page: #f8fafc;
+  --color-bg-page: #f0f2f5;
   --color-bg-sidebar: #ffffff;
   --color-bg-card: #ffffff;
-  --color-bg-hover: #f1f5f9;
+  --color-bg-hover: #fafafa;
+  --color-bg-header: #ffffff;
 
   /* Borders */
-  --color-border: #e2e8f0;
-  --color-border-light: #f1f5f9;
+  --color-border: #d9d9d9;
+  --color-border-light: #d9d9d9;
 
-  /* Text */
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #64748b;
-  --color-text-muted: #94a3b8;
+  /* Text - Ant Design text hierarchy */
+  --color-text-primary: rgba(0, 0, 0, 0.85);
+  --color-text-secondary: rgba(0, 0, 0, 0.65);
+  --color-text-muted: rgba(0, 0, 0, 0.45);
 
   /* Status */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #6366f1;
+  --color-success: #52c41a;
+  --color-warning: #faad14;
+  --color-danger: #ff4d4f;
+  --color-info: #1890ff;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  /* Shadows - Ant Design standard shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 6px 16px -8px rgba(0, 0, 0, 0.08), 0 9px 28px 0 rgba(0, 0, 0, 0.05), 0 12px 48px 16px rgba(0, 0, 0, 0.03);
 
   /* Layout */
-  --header-height: 60px;
-  --sidebar-width: 280px;
+  --header-height: 56px;
+  --sidebar-width: 240px;
   --radius: 6px;
 }

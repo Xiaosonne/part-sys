@@ -19,19 +19,32 @@
       <div class="panel-card">
         <el-table :data="filteredTasks" stripe v-loading="loading" style="width: 100%;">
           <el-table-column prop="partName" label="配件名称" min-width="150" />
-          <el-table-column prop="selectionPlanId" label="选型单" width="200" />
-          <el-table-column prop="lockedQty" label="锁定数量" width="90" align="center" />
+          <el-table-column prop="projectName" label="项目" min-width="120">
+            <template #default="{ row }">
+              {{ row.projectName || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="selectionPlanName" label="选型单" min-width="140">
+            <template #default="{ row }">
+              {{ row.selectionPlanName || row.selectionPlanId }}
+            </template>
+          </el-table-column>
           <el-table-column prop="requiredQty" label="需采购数量" width="100" align="center">
             <template #default="{ row }">
               <span class="qty-pending">{{ row.requiredQty }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="110">
+          <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
               <el-tag size="small" :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createdAt" label="创建时间" width="170" />
+          <el-table-column prop="createdByName" label="创建人" width="90" align="center" />
+          <el-table-column prop="createdAt" label="创建时间" width="160">
+            <template #default="{ row }">
+              {{ formatDate(row.createdAt) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
           <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
@@ -111,7 +124,7 @@ onMounted(async () => {
 const loadTasks = async () => {
   loading.value = true
   try {
-    const res = await request.get('/api/purchase-tasks')
+    const res = await request.get('/purchase-tasks')
     tasks.value = res.data || []
   } catch (e) {
     ElMessage.error('加载采购任务失败')
@@ -123,7 +136,7 @@ const loadTasks = async () => {
 const startTask = async (task) => {
   try {
     await ElMessageBox.confirm(`确认开始采购 "${task.partName}" x${task.requiredQty}？`, '开始采购', { type: 'info' })
-    await request.post(`/api/purchase-tasks/${task.id}/start`)
+    await request.post(`/purchase-tasks/${task.id}/start`)
     ElMessage.success('已开始采购')
     await loadTasks()
   } catch (e) {
@@ -136,7 +149,7 @@ const startTask = async (task) => {
 const receiveTask = async (task) => {
   try {
     await ElMessageBox.confirm(`确认 "${task.partName}" x${task.requiredQty} 已到货？`, '确认到货', { type: 'success' })
-    await request.post(`/api/purchase-tasks/${task.id}/receive`)
+    await request.post(`/purchase-tasks/${task.id}/receive`)
     ElMessage.success('已标记为已到货')
     await loadTasks()
   } catch (e) {
@@ -149,7 +162,7 @@ const receiveTask = async (task) => {
 const cancelTask = async (task) => {
   try {
     await ElMessageBox.confirm(`确认取消采购任务 "${task.partName}"？`, '取消任务', { type: 'warning' })
-    await request.post(`/api/purchase-tasks/${task.id}/cancel`)
+    await request.post(`/purchase-tasks/${task.id}/cancel`)
     ElMessage.success('已取消')
     await loadTasks()
   } catch (e) {

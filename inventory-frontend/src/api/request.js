@@ -3,7 +3,7 @@ import { getToken, clearAuth } from '@/utils/auth'
 import router from '@/router'
 
 const request = axios.create({
-  baseURL: 'http://localhost:5128/api'
+  baseURL: '/api'
 })
 
 request.interceptors.request.use(config => {

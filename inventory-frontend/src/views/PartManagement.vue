@@ -20,14 +20,7 @@
                 ref="partListRef"
                 :category-path="selectedCategoryPath"
                 :category-id="selectedCategoryId"
-              />
-            </el-tab-pane>
-
-            <!-- Spec Search Tab (only when category has merged spec params) -->
-            <el-tab-pane label="规格搜索" name="search" :disabled="!effectiveSpecTemplate">
-              <SpecFilterPanel
                 :template="effectiveSpecTemplate"
-                :category-path="selectedCategoryPath"
               />
             </el-tab-pane>
 
@@ -54,7 +47,6 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import CategoryTree from '@/components/part-management/CategoryTree.vue'
 import PartListPanel from '@/components/part-management/PartListPanel.vue'
-import SpecFilterPanel from '@/components/part-management/SpecFilterPanel.vue'
 import CategorySettingsPanel from '@/components/part-management/CategorySettingsPanel.vue'
 import { getPartCategories, getPartCategoryById } from '@/api/partCategories'
 import { getTemplates } from '@/api/templates'

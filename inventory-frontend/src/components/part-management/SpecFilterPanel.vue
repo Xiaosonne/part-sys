@@ -291,7 +291,7 @@ const {
 const availableParams = computed(() => {
   if (!props.template?.paramDefs) return []
   const activeKeys = new Set(activeFilters.value.map(f => f.key))
-  return props.template.paramDefs.filter(p => !activeKeys.has(p.key))
+  return props.template.paramDefs.filter(p => !activeKeys.has(p.key) && String(p.label || '').trim())
 })
 
 // Override doSearch to use props.categoryPath

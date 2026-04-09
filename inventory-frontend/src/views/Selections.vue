@@ -6,26 +6,6 @@
         <el-input v-model="treeSearch" placeholder="搜索项目/选型" prefix-icon="Search" clearable
           style="margin-bottom: 10px;" />
 
-        <!-- Create new selection -->
-        <el-popover placement="right" :width="300" trigger="click" v-model:visible="showNewPlanPopover">
-          <template #reference>
-            <el-button type="primary" size="small" style="width: 100%; margin-bottom: 10px;">+ 新建选型单</el-button>
-          </template>
-          <el-form :model="newPlanForm" label-width="80px" size="small">
-            <el-form-item label="名称">
-              <el-input v-model="newPlanForm.name" placeholder="选型单名称" />
-            </el-form-item>
-            <el-form-item label="所属项目">
-              <el-select v-model="newPlanForm.projectId" placeholder="选择项目" filterable style="width: 100%;">
-                <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" size="small" @click="saveNewPlan" style="width: 100%;">创建</el-button>
-            </el-form-item>
-          </el-form>
-        </el-popover>
-
         <!-- Tree -->
         <el-scrollbar class="tree-scrollbar">
           <el-tree ref="treeRef" :data="treeData" :props="{ label: 'name', children: 'children' }"
@@ -57,6 +37,22 @@
         <div class="view-header">
           <h3>{{ currentProject.name }}</h3>
           <span class="subtitle">选型单列表</span>
+          <el-popover placement="bottom-start" :width="300" trigger="click" v-model:visible="showNewPlanPopover" @show="newPlanForm.projectId = currentProject?.id">
+            <template #reference>
+              <el-button type="primary" size="small">+ 新建选型单</el-button>
+            </template>
+            <el-form :model="newPlanForm" label-width="80px" size="small">
+              <el-form-item label="所属项目">
+                <span>{{ currentProject?.name }}</span>
+              </el-form-item>
+              <el-form-item label="名称">
+                <el-input v-model="newPlanForm.name" placeholder="选型单名称" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" size="small" @click="saveNewPlan" style="width: 100%;">创建</el-button>
+              </el-form-item>
+            </el-form>
+          </el-popover>
         </div>
 
         <el-table :data="projectSelections" border stripe v-loading="loadingSelections">

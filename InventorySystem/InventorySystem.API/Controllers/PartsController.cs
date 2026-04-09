@@ -12,11 +12,16 @@ public class PartsController : ControllerBase
 {
     private readonly IPartRepository _repo;
     private readonly ISpecTemplateRepository _templateRepo;
+    private readonly IPartCategoryRepository _categoryRepo;
 
-    public PartsController(IPartRepository repo, ISpecTemplateRepository templateRepo)
+    public PartsController(
+        IPartRepository repo,
+        ISpecTemplateRepository templateRepo,
+        IPartCategoryRepository categoryRepo)
     {
         _repo = repo;
         _templateRepo = templateRepo;
+        _categoryRepo = categoryRepo;
     }
 
     [HttpGet]
@@ -120,6 +125,18 @@ public class PartsController : ControllerBase
     [Authorize(Roles = "admin,warehouse")]
     public async Task<IActionResult> Create([FromBody] Part part)
     {
+        // Validate category exists
+        if (!string.IsNullOrEmpty(part.Category))
+        {
+            var category = await _categoryRepo.GetByPathAsync(part.Category);
+            if (category == null)
+                return BadRequest(new { message = $"分类 '{part.Category}' 不存在，请先创建分类" });
+        }
+        else
+        {
+            return BadRequest(new { message = "必须选择分类才能创建配件" });
+        }
+
         part.CreatedAt = DateTime.UtcNow;
         part.UpdatedAt = DateTime.UtcNow;
         await _repo.CreateAsync(part);
@@ -133,6 +150,8 @@ public class PartsController : ControllerBase
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null) return NotFound();
         part.Id = id;
+        part.LockedQty = existing.LockedQty;
+        part.AvailableQty = part.TotalQty - existing.LockedQty;
         part.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(id, part);
         return Ok(part);

@@ -1,28 +1,24 @@
-/* Global styles — clean tech aesthetic */
+/* Global styles — Ant Design System */
 
 /* ── Element Plus CSS Variable Overrides ──────────────────── */
 .el-button--primary {
   --el-button-bg-color: var(--color-primary);
   --el-button-border-color: var(--color-primary);
-  --el-button-hover-bg-color: var(--color-primary-dark);
-  --el-button-hover-border-color: var(--color-primary-dark);
+  --el-button-hover-bg-color: var(--color-primary-light);
+  --el-button-hover-border-color: var(--color-primary-light);
   --el-button-active-bg-color: var(--color-primary-dark);
   --el-button-active-border-color: var(--color-primary-dark);
 }
 
 .el-menu--horizontal .el-menu-item:not(.is-disabled):hover,
 .el-menu--horizontal .el-menu-item:not(.is-disabled):focus {
-  background-color: rgba(37, 99, 235, 0.08);
+  background-color: var(--color-primary-50);
   color: var(--color-primary);
 }
 
 .el-menu--horizontal .el-menu-item.is-active {
   color: var(--color-primary) !important;
   border-bottom-color: var(--color-primary) !important;
-}
-
-.el-menu--horizontal > .el-menu-item.is-active::after {
-  background-color: var(--color-primary) !important;
 }
 
 .el-tabs__item.is-active {
@@ -55,83 +51,100 @@ body {
 
 /* ── Header ─────────────────────────────────────────────── */
 .app-header {
-  background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%);
-  color: #fff;
+  background: var(--color-bg-header);
+  color: var(--color-text-primary);
   height: var(--header-height);
   display: flex;
   align-items: center;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0;
 }
 
 .app-header .header-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  padding: 0 32px 0 20px;
+  letter-spacing: 0;
+  padding: 0 24px;
   white-space: nowrap;
-  color: #fff;
+  color: var(--color-text-primary);
+  border-right: 1px solid var(--color-border);
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .app-header .el-menu {
   flex: 1;
   background: transparent !important;
   border: none !important;
+  height: var(--header-height);
+}
+
+.app-header .el-menu--horizontal {
+  display: flex;
+  align-items: center;
 }
 
 .app-header .el-menu-item {
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--color-text-secondary) !important;
   font-size: 14px;
   height: var(--header-height);
   line-height: var(--header-height);
   border-bottom: 2px solid transparent !important;
+  padding: 0 16px;
 }
 
 .app-header .el-menu-item:hover,
 .app-header .el-menu-item:focus {
-  color: #fff !important;
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--color-primary) !important;
+  background-color: var(--color-primary-50) !important;
 }
 
 .app-header .el-menu-item.is-active {
-  color: #fff !important;
-  border-bottom-color: rgba(255, 255, 255, 0.7) !important;
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--color-primary) !important;
+  border-bottom-color: var(--color-primary) !important;
+  background-color: var(--color-primary-50) !important;
 }
 
 .app-header .workflow-dropdown {
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  color: rgba(255, 255, 255, 0.85);
+  padding: 0 16px;
+  color: var(--color-text-secondary);
   cursor: pointer;
   height: var(--header-height);
   font-size: 14px;
   border-bottom: 2px solid transparent;
+  margin: 0;
 }
 
 .app-header .workflow-dropdown:hover {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--color-primary);
+  background-color: var(--color-primary-50);
 }
 
 .app-header .user-info {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 20px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
+  padding: 0 24px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  border-left: 1px solid var(--color-border);
+  height: 100%;
 }
 
 .app-header .btn-logout {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
 }
 
 .app-header .btn-logout:hover {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.5);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
 }
 
 /* ── Page Container ─────────────────────────────────────── */
@@ -157,17 +170,17 @@ body {
   flex: 1;
   background: var(--color-bg-page);
   overflow-y: auto;
-  padding: 0;
+  padding: 20px;
   display: flex;
   flex-direction: column;
 }
 
-/* ── Cards / Panels ───────────────────────────────────── */
+/* ── Cards / Panels — Ant Design Card ───────────────────── */
 .panel {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 20px;
 }
 
 .panel-card {
@@ -177,14 +190,38 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+/* ── Ant Design Card ─────────────────────────────────────── */
+.ant-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.ant-card-head {
+  padding: 0 20px;
+  border-bottom: 1px solid var(--color-border);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.ant-card-head-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ant-card-body {
+  padding: 20px;
+}
+
 /* ── Section Headers ───────────────────────────────────── */
 .section-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
 }
 
 /* ── Form layout ───────────────────────────────────────── */
@@ -193,14 +230,14 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 24px;
-  max-width: 600px;
+  box-shadow: var(--shadow-sm);
 }
 
 .form-section-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-primary);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -213,14 +250,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: 48px 24px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 }
 
 /* ── Stats Bar ─────────────────────────────────────────── */
 .stats-bar {
   display: flex;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 16px 20px;
   background: var(--color-bg-page);
   border-bottom: 1px solid var(--color-border);
 }
@@ -229,42 +266,45 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 16px;
+  padding: 12px 20px;
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  min-width: 80px;
+  min-width: 100px;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-value {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 600;
   color: var(--color-primary);
   line-height: 1;
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
   margin-top: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-/* ── Tables ─────────────────────────────────────────────── */
+/* ── Tables — Ant Design Table Style ───────────────────── */
 .el-table {
   --el-table-border-color: var(--color-border);
   --el-table-header-bg-color: var(--color-bg-page);
-  font-size: 13px;
+  font-size: 14px;
+  border-radius: var(--radius);
 }
 
 .el-table th.el-table__cell {
   background-color: var(--color-bg-page) !important;
   font-weight: 600;
   color: var(--color-text-primary);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.el-table__body tr:hover > td.el-table__cell {
+  background-color: var(--color-primary-50) !important;
 }
 
 .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
@@ -275,15 +315,15 @@ body {
 .el-tree {
   --el-tree-node-hover-bg-color: var(--color-primary-50);
   background: transparent;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .el-tree-node.is-current > .el-tree-node__content {
-  background-color: var(--color-primary-100) !important;
+  background-color: var(--color-primary-50) !important;
   color: var(--color-primary);
 }
 
-/* ── Dialog ─────────────────────────────────────────────── */
+/* ── Dialog — Ant Design Dialog ─────────────────────────── */
 .el-dialog {
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -292,15 +332,25 @@ body {
 .el-dialog__header {
   border-bottom: 1px solid var(--color-border);
   padding: 16px 20px;
+  margin-right: 0;
 }
 
 .el-dialog__title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
-/* ── Tags ──────────────────────────────────────────────── */
+.el-dialog__body {
+  padding: 20px;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid var(--color-border);
+  padding: 16px 20px;
+}
+
+/* ── Tags — Ant Design Tag Colors ──────────────────────── */
 .filter-tag {
   cursor: pointer;
   font-size: 12px;
@@ -308,17 +358,22 @@ body {
 
 /* ── Tree search bar ───────────────────────────────────── */
 .tree-search {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 /* ── Action bar ────────────────────────────────────────── */
 .action-bar {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
-  padding: 12px 16px;
-  background: var(--color-bg-page);
+  padding: 16px 20px;
+  background: var(--color-bg-card);
   border-bottom: 1px solid var(--color-border);
+}
+
+.action-bar:first-child {
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
 }
 
 /* ── View Header ───────────────────────────────────────── */
@@ -326,25 +381,63 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 16px 20px;
   background: var(--color-bg-card);
   border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .view-header h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .view-header .subtitle {
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 }
 
-/* ── Status Tags ───────────────────────────────────────── */
-.status-draft { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.status-submitted { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
-.status-approved { background: #ecfdf5; color: #10b981; border-color: #a7f3d0; }
-.status-rejected { background: #fef2f2; color: #ef4444; border-color: #fecaca; }
+/* ── Status Tags — Ant Design Semantic Colors ──────────── */
+.status-draft { background: #f5f5f5; color: #00000073; border-color: #d9d9d9; }
+.status-submitted { background: #e6f7ff; color: #1890ff; border-color: #91d5ff; }
+.status-approved, .status-approved { background: #f6ffed; color: #52c41a; border-color: #b7eb8f; }
+.status-rejected, .status-rejected { background: #fff2f0; color: #ff4d4f; border-color: #ffccc7; }
+.status-pending { background: #fffbe6; color: #faad14; border-color: #ffe58f; }
+
+/* ── Page Header Pattern ───────────────────────────────── */
+.page-header {
+  background: var(--color-bg-card);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* ── Tabs Container ─────────────────────────────────────── */
+.tabs-container {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tabs-container .el-tabs__header {
+  margin: 0;
+  background: var(--color-bg-page);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs-container .el-tabs__nav-wrap::after {
+  display: none;
+}

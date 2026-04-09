@@ -1,31 +1,102 @@
 <template>
   <div class="part-list-panel">
-    <!-- Header -->
-    <div class="panel-header">
-      <el-input
-        v-model="searchKeyword"
-        placeholder="搜索配件名称、型号..."
-        clearable
-        style="width: 300px;"
-        @keyup.enter="doSearch"
-      >
-        <template #append>
-          <el-button @click="doSearch">搜索</el-button>
-        </template>
-      </el-input>
-      <el-button type="primary" @click="showAddDialog">
-        <el-icon><Plus /></el-icon> 新增配件
-      </el-button>
+    <!-- Search Bar -->
+    <div class="search-bar panel-card">
+      <!-- Row 1: Keyword + Filter Button + Stock + Actions -->
+      <div class="search-row">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索配件名称、型号..."
+          clearable
+          style="width: 180px;"
+          @keyup.enter="doSearch"
+        />
+
+        <!-- Spec Filter Tags -->
+        <div class="filter-tags" v-if="activeFilters.length > 0">
+          <el-tag
+            v-for="filter in activeFilters"
+            :key="filter.key"
+            closable
+            @close="removeFilter(filter.key)"
+            size="small"
+          >
+            {{ filter.label }}: {{ formatFilterValue(filter) }}
+          </el-tag>
+        </div>
+
+        <!-- Add Filter Dropdown (only if template has params) -->
+        <el-dropdown @command="handleAddFilter" trigger="click" v-if="template?.paramDefs?.length">
+          <el-button type="primary" plain size="small">
+            <el-icon><Plus /></el-icon> 添加过滤
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="param in availableParams"
+                :key="param.key"
+                :command="param"
+              >
+                {{ param.label }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+
+        <el-divider direction="vertical" />
+
+        <!-- Stock Range -->
+        <span class="range-label">库存</span>
+        <el-input-number
+          v-model="minQty"
+          :min="0"
+          placeholder="最小"
+          size="small"
+          style="width: 90px;"
+          controls-position="right"
+        />
+        <span class="range-sep">-</span>
+        <el-input-number
+          v-model="maxQty"
+          :min="0"
+          placeholder="最大"
+          size="small"
+          style="width: 90px;"
+          controls-position="right"
+        />
+
+        <el-button type="primary" @click="doSearch" :loading="loading" size="small">搜索</el-button>
+        <el-button @click="resetFilters" size="small" v-if="activeFilters.length > 0 || minQty || maxQty || searchKeyword">重置</el-button>
+
+        <div class="spacer" />
+
+        <el-tooltip :disabled="!!props.categoryPath" content="请先在左侧选择分类" placement="bottom">
+          <el-button type="primary" @click="showAddDialog" :disabled="!props.categoryPath">
+            <el-icon><Plus /></el-icon> 新增配件
+          </el-button>
+        </el-tooltip>
+      </div>
     </div>
 
     <!-- Table -->
-    <el-table :data="filteredParts" stripe style="width: 100%;" v-loading="loading">
+    <el-table :data="displayParts" stripe style="width: 100%;" v-loading="loading">
       <el-table-column prop="name" label="名称" width="150" />
       <el-table-column prop="model" label="型号" width="120" />
       <el-table-column prop="brand" label="品牌" width="100" />
       <el-table-column label="标签" width="150">
         <template #default="{row}">
           <el-tag v-for="tag in (row.tags || [])" :key="tag" size="small" style="margin-right: 4px;">{{tag}}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="规格" min-width="150">
+        <template #default="{row}">
+          <span v-if="row.specs && row.specs.length > 0" class="specs-cell">
+            <span v-for="spec in row.specs.slice(0, 2)" :key="spec.key" class="spec-item">
+              {{ spec.label }}: {{ spec.value }}{{ spec.unit }}
+            </span>
+            <span v-if="row.specs.length > 2" class="more-specs">+{{ row.specs.length - 2 }}</span>
+          </span>
+          <span v-else>-</span>
         </template>
       </el-table-column>
       <el-table-column prop="availableQty" label="可用" width="80" />
@@ -39,7 +110,32 @@
     </el-table>
 
     <!-- Empty state -->
-    <el-empty v-if="!loading && filteredParts.length === 0" description="暂无配件" />
+    <el-empty v-if="!loading && displayParts.length === 0" description="暂无配件" />
+
+    <!-- Filter Edit Dialog -->
+    <el-dialog v-model="showFilterDialog" title="编辑过滤条件" width="400px">
+      <el-form :model="filterForm" label-width="80px" v-if="editingFilter">
+        <el-form-item :label="editingFilter.label">
+          <!-- select type -->
+          <el-select v-if="editingFilter.dataType === 'select'" v-model="filterForm.value" placeholder="选择值">
+            <el-option v-for="opt in editingFilter.options" :key="opt" :label="opt" :value="opt" />
+          </el-select>
+          <!-- boolean type -->
+          <el-select v-else-if="editingFilter.dataType === 'boolean'" v-model="filterForm.value">
+            <el-option label="是" :value="true" />
+            <el-option label="否" :value="false" />
+          </el-select>
+          <!-- number type -->
+          <el-input-number v-else-if="editingFilter.dataType === 'number'" v-model="filterForm.value" />
+          <!-- string type -->
+          <el-input v-else v-model="filterForm.value" :placeholder="editingFilter.unit" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showFilterDialog = false">取消</el-button>
+        <el-button type="primary" @click="confirmFilter">确定</el-button>
+      </template>
+    </el-dialog>
 
     <!-- Add/Edit Dialog -->
     <el-dialog v-model="showDialog" :title="editingPart ? '编辑配件' : '新增配件'" width="800px">
@@ -165,6 +261,10 @@ const props = defineProps({
   categoryId: {
     type: String,
     default: null
+  },
+  template: {
+    type: Object,
+    default: null
   }
 })
 
@@ -173,6 +273,86 @@ const parts = ref([])
 const templates = ref([])
 const loading = ref(false)
 const searchKeyword = ref('')
+
+// Filter state
+const activeFilters = ref([])
+const minQty = ref(null)
+const maxQty = ref(null)
+const showFilterDialog = ref(false)
+const editingFilter = ref(null)
+const filterForm = ref({ value: null })
+
+// Available params for filter dropdown
+const availableParams = computed(() => {
+  if (!props.template?.paramDefs) return []
+  const activeKeys = new Set(activeFilters.value.map(f => f.key))
+  return props.template.paramDefs.filter(p => !activeKeys.has(p.key) && String(p.label || '').trim())
+})
+
+// Display parts (after filters applied)
+const displayParts = computed(() => {
+  return parts.value
+})
+
+// Format filter value for display
+const formatFilterValue = (filter) => {
+  if (filter.value === true) return '是'
+  if (filter.value === false) return '否'
+  return filter.value
+}
+
+// Add filter
+const handleAddFilter = (param) => {
+  editingFilter.value = param
+  if (param.dataType === 'boolean') {
+    filterForm.value = { value: false }
+  } else if (param.dataType === 'number') {
+    filterForm.value = { value: null }
+  } else if (param.options?.length > 0) {
+    filterForm.value = { value: param.options[0] }
+  } else {
+    filterForm.value = { value: '' }
+  }
+  showFilterDialog.value = true
+}
+
+// Confirm filter
+const confirmFilter = () => {
+  if (!editingFilter.value) return
+  activeFilters.value.push({
+    key: editingFilter.value.key,
+    label: editingFilter.value.label,
+    value: filterForm.value.value,
+    dataType: editingFilter.value.dataType,
+    unit: editingFilter.value.unit,
+    options: editingFilter.value.options
+  })
+  showFilterDialog.value = false
+  editingFilter.value = null
+}
+
+// Remove filter
+const removeFilter = (key) => {
+  activeFilters.value = activeFilters.value.filter(f => f.key !== key)
+}
+
+// Reset filters
+const resetFilters = () => {
+  activeFilters.value = []
+  minQty.value = null
+  maxQty.value = null
+  searchKeyword.value = ''
+  doSearch()
+}
+
+// Build spec filters for API
+const buildSpecFilters = () => {
+  return activeFilters.value.map(f => ({
+    key: f.key,
+    op: f.dataType === 'number' ? 'eq' : 'eq',
+    value: String(f.value)
+  }))
+}
 
 // Dialog state
 const showDialog = ref(false)
@@ -216,6 +396,36 @@ const filteredParts = computed(() => {
   )
 })
 
+// Load parts for this category
+const loadParts = async () => {
+  loading.value = true
+  try {
+    const searchParams = { categoryPath: props.categoryPath || null }
+    if (activeFilters.value.length > 0 || minQty.value || maxQty.value || searchKeyword.value) {
+      // Use search with filters
+      if (searchKeyword.value) searchParams.keyword = searchKeyword.value
+      if (activeFilters.value.length > 0) searchParams.specFilters = buildSpecFilters()
+      if (minQty.value) searchParams.minAvailableQty = minQty.value
+      if (maxQty.value) searchParams.maxAvailableQty = maxQty.value
+      const res = (await searchParts(searchParams)).data
+      parts.value = res || []
+    } else {
+      // Simple load by category
+      if (props.categoryPath) {
+        const res = (await searchParts({ categoryPath: props.categoryPath })).data
+        parts.value = res || []
+      } else {
+        const res = (await getParts()).data
+        parts.value = res || []
+      }
+    }
+  } catch (error) {
+    ElMessage.error('加载配件失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 // Watch category changes
 watch(() => props.categoryPath, async () => {
   await loadParts()
@@ -235,24 +445,6 @@ watch(selectedTemplate, (tpl) => {
     })
   }
 })
-
-// Load parts for this category
-const loadParts = async () => {
-  loading.value = true
-  try {
-    if (props.categoryPath) {
-      const res = (await searchParts({ categoryPath: props.categoryPath })).data
-      parts.value = res || []
-    } else {
-      const res = (await getParts()).data
-      parts.value = res || []
-    }
-  } catch (error) {
-    ElMessage.error('加载配件失败')
-  } finally {
-    loading.value = false
-  }
-}
 
 // Load templates
 const loadTemplates = async () => {
@@ -280,16 +472,14 @@ const onTemplateChange = async (templateId) => {
 
 // Search
 const doSearch = async () => {
-  if (!searchKeyword.value) {
-    await loadParts()
-    return
-  }
   loading.value = true
   try {
-    const res = (await searchParts({
-      keyword: searchKeyword.value,
-      categoryPath: props.categoryPath
-    })).data
+    const searchParams = { categoryPath: props.categoryPath || null }
+    if (searchKeyword.value) searchParams.keyword = searchKeyword.value
+    if (activeFilters.value.length > 0) searchParams.specFilters = buildSpecFilters()
+    if (minQty.value) searchParams.minAvailableQty = minQty.value
+    if (maxQty.value) searchParams.maxAvailableQty = maxQty.value
+    const res = (await searchParts(searchParams)).data
     parts.value = res || []
   } catch (error) {
     ElMessage.error('搜索失败')
@@ -300,6 +490,10 @@ const doSearch = async () => {
 
 // Show add dialog
 const showAddDialog = () => {
+  if (!props.categoryPath) {
+    ElMessage.warning('请先在左侧选择一个分类')
+    return
+  }
   editingPart.value = null
   selectedTemplateId.value = null
   selectedTemplate.value = null
@@ -491,15 +685,9 @@ defineExpose({
   flex-direction: column;
 }
 
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
 .el-table {
   flex: 1;
+  margin-top: 12px;
 }
 
 .file-management {
@@ -510,5 +698,59 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Search bar styles */
+.search-bar {
+  padding: 12px 16px;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.filter-tags .el-tag {
+  margin-right: 0;
+}
+
+.range-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-left: 4px;
+}
+
+.range-sep {
+  color: var(--color-text-secondary);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.specs-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.spec-item {
+  white-space: nowrap;
+}
+
+.more-specs {
+  color: var(--color-primary);
+  font-size: 11px;
 }
 </style>
