@@ -145,7 +145,7 @@ public class SelectionServiceTests
 
         _planRepoMock.Setup(r => r.GetByIdAsync("plan1")).ReturnsAsync(plan);
         _partRepoMock.Setup(r => r.GetByIdAsync("part1")).ReturnsAsync(part);
-        _stockServiceMock.Setup(s => s.LockAsync("part1", 10, "user1", "proj1", It.IsAny<string>()))
+        _stockServiceMock.Setup(s => s.LockAsync("part1", 10, "user1", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -157,7 +157,7 @@ public class SelectionServiceTests
         Assert.Equal(10, result.LockedItems[0].LockedQty);
         Assert.Equal(0, result.LockedItems[0].PendingQty);
         Assert.Empty(result.CreatedPurchaseTasks);
-        _stockServiceMock.Verify(s => s.LockAsync("part1", 10, "user1", "proj1", It.IsAny<string>()), Times.Once);
+        _stockServiceMock.Verify(s => s.LockAsync("part1", 10, "user1", "proj1", "plan1", It.IsAny<string?>(), It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public class SelectionServiceTests
 
         _planRepoMock.Setup(r => r.GetByIdAsync("plan1")).ReturnsAsync(plan);
         _partRepoMock.Setup(r => r.GetByIdAsync("part1")).ReturnsAsync(part);
-        _stockServiceMock.Setup(s => s.LockAsync("part1", 5, "user1", "proj1", It.IsAny<string>()))
+        _stockServiceMock.Setup(s => s.LockAsync("part1", 5, "user1", "proj1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
         _purchaseTaskRepoMock.Setup(r => r.CreateAsync(It.IsAny<PurchaseTask>()))
             .Callback<PurchaseTask>(t => t.Id = "task1")
@@ -188,7 +188,7 @@ public class SelectionServiceTests
         Assert.Equal(5, result.CreatedPurchaseTasks[0].RequiredQty);
         Assert.Equal(PurchaseTaskStatus.Pending, result.CreatedPurchaseTasks[0].Status);
 
-        _stockServiceMock.Verify(s => s.LockAsync("part1", 5, "user1", "proj1", It.IsAny<string>()), Times.Once);
+        _stockServiceMock.Verify(s => s.LockAsync("part1", 5, "user1", "proj1", "plan1", It.IsAny<string?>(), It.IsAny<string>()), Times.Once);
         _purchaseTaskRepoMock.Verify(r => r.CreateAsync(It.IsAny<PurchaseTask>()), Times.Once);
     }
 
@@ -218,7 +218,7 @@ public class SelectionServiceTests
         Assert.Equal(10, result.CreatedPurchaseTasks[0].RequiredQty);
 
         // 不应调用 LockAsync，因为没有可用库存
-        _stockServiceMock.Verify(s => s.LockAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _stockServiceMock.Verify(s => s.LockAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -231,7 +231,7 @@ public class SelectionServiceTests
 
         _planRepoMock.Setup(r => r.GetByIdAsync("plan1")).ReturnsAsync(plan);
         _partRepoMock.Setup(r => r.GetByIdAsync("part1")).ReturnsAsync(part);
-        _stockServiceMock.Setup(s => s.LockAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        _stockServiceMock.Setup(s => s.LockAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         // Act

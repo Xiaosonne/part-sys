@@ -61,6 +61,8 @@ public class SelectionService : ISelectionService
                     availableToLock,
                     operatorId,
                     plan.ProjectId,
+                    plan.Id,
+                    item.Id,
                     $"选型单锁定: {plan.Name}");
             }
 

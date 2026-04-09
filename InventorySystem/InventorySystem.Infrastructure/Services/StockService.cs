@@ -14,13 +14,13 @@ public class StockService : IStockService
         _txRepo = txRepo;
     }
 
-    public async Task InboundAsync(string partId, int qty, string operatorId, string? note)
+    public async Task InboundAsync(string partId, int qty, string operatorId, StockSourceType sourceType, string? note)
     {
         await _partRepo.UpdateQuantitiesAsync(partId, qty, 0, qty);
         await _txRepo.CreateAsync(new StockTransaction
         {
             PartId = partId, Type = "INBOUND", Quantity = qty,
-            OperatorId = operatorId, Note = note ?? string.Empty
+            OperatorId = operatorId, SourceType = sourceType, Note = note ?? string.Empty
         });
     }
 
@@ -41,7 +41,7 @@ public class StockService : IStockService
         });
     }
 
-    public async Task LockAsync(string partId, int qty, string operatorId, string? projectId, string? note)
+    public async Task LockAsync(string partId, int qty, string operatorId, string? projectId, string? selectionPlanId, string? selectionItemId, string? note)
     {
         var part = await _partRepo.GetByIdAsync(partId)
             ?? throw new InvalidOperationException("配件不存在");
@@ -53,6 +53,8 @@ public class StockService : IStockService
         {
             PartId = partId, Type = "LOCK", Quantity = qty,
             OperatorId = operatorId, ProjectId = projectId,
+            SelectionPlanId = selectionPlanId,
+            SelectionItemId = selectionItemId,
             Note = note ?? string.Empty
         });
     }

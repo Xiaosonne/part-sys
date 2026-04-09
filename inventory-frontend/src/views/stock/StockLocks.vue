@@ -254,7 +254,7 @@ const unlocking = ref(false)
 const handleUnlock = (lock, part) => {
   unlockingLock.value = { ...lock, partId: part.partId }
   unlockingPart.value = part
-  unlockQty.value = Math.min(1, lock.lockedQty)
+  unlockQty.value = lock.lockedQty
   showUnlockDialog.value = true
 }
 

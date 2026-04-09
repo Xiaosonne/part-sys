@@ -45,6 +45,18 @@ public class SpecTemplatesController : ControllerBase
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> Create([FromBody] SpecTemplate template)
     {
+        // Validate paramDefs have non-empty key and label
+        if (template.ParamDefs != null)
+        {
+            foreach (var param in template.ParamDefs)
+            {
+                if (string.IsNullOrWhiteSpace(param.Key))
+                    return BadRequest(new { message = "规格参数Key不能为空" });
+                if (string.IsNullOrWhiteSpace(param.Label))
+                    return BadRequest(new { message = $"规格参数 '{param.Key}' 的标签(Label)不能为空" });
+            }
+        }
+
         await _repo.CreateAsync(template);
         return CreatedAtAction(nameof(GetById), new { id = template.Id }, template);
     }
@@ -55,6 +67,19 @@ public class SpecTemplatesController : ControllerBase
     {
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null) return NotFound();
+
+        // Validate paramDefs have non-empty key and label
+        if (template.ParamDefs != null)
+        {
+            foreach (var param in template.ParamDefs)
+            {
+                if (string.IsNullOrWhiteSpace(param.Key))
+                    return BadRequest(new { message = "规格参数Key不能为空" });
+                if (string.IsNullOrWhiteSpace(param.Label))
+                    return BadRequest(new { message = $"规格参数 '{param.Key}' 的标签(Label)不能为空" });
+            }
+        }
+
         template.Id = id;
         await _repo.UpdateAsync(id, template);
 

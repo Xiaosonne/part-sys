@@ -13,23 +13,94 @@ public class PurchaseTasksController : ControllerBase
     private readonly IPurchaseTaskRepository _repo;
     private readonly IStockService _stockService;
     private readonly ISelectionPlanRepository _planRepo;
+    private readonly IProjectNodeRepository _projectRepo;
+    private readonly IUserRepository _userRepo;
 
-    public PurchaseTasksController(IPurchaseTaskRepository repo, IStockService stockService, ISelectionPlanRepository planRepo)
+    public PurchaseTasksController(
+        IPurchaseTaskRepository repo,
+        IStockService stockService,
+        ISelectionPlanRepository planRepo,
+        IProjectNodeRepository projectRepo,
+        IUserRepository userRepo)
     {
         _repo = repo;
         _stockService = stockService;
         _planRepo = planRepo;
+        _projectRepo = projectRepo;
+        _userRepo = userRepo;
     }
 
     /// <summary>
-    /// 获取所有采购任务
+    /// 获取所有采购任务（带关联信息）
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] PurchaseTaskStatus? status = null)
     {
+        List<PurchaseTask> tasks;
         if (status.HasValue)
-            return Ok(await _repo.GetByStatusAsync(status.Value));
-        return Ok(await _repo.GetAllAsync());
+            tasks = await _repo.GetByStatusAsync(status.Value);
+        else
+            tasks = await _repo.GetAllAsync();
+
+        var result = new List<PurchaseTaskListDto>();
+        foreach (var task in tasks)
+        {
+            var dto = new PurchaseTaskListDto
+            {
+                Id = task.Id,
+                SelectionPlanId = task.SelectionPlanId,
+                SelectionItemId = task.SelectionItemId,
+                PartId = task.PartId,
+                PartName = task.PartName,
+                LockedQty = task.LockedQty,
+                RequiredQty = task.RequiredQty,
+                Status = task.Status,
+                CreatedBy = task.CreatedBy,
+                CreatedAt = task.CreatedAt,
+                UpdatedBy = task.UpdatedBy,
+                UpdatedAt = task.UpdatedAt,
+                Remark = task.Remark
+            };
+
+            // Enrich with selection plan name
+            if (!string.IsNullOrEmpty(task.SelectionPlanId))
+            {
+                var plan = await _planRepo.GetByIdAsync(task.SelectionPlanId);
+                if (plan != null)
+                {
+                    dto.SelectionPlanName = plan.Name;
+                    dto.ProjectId = plan.ProjectId;
+
+                    // Enrich with project name
+                    if (!string.IsNullOrEmpty(plan.ProjectId))
+                    {
+                        var project = await _projectRepo.GetByIdAsync(plan.ProjectId);
+                        if (project != null)
+                        {
+                            dto.ProjectName = project.Name;
+                        }
+                    }
+                }
+            }
+
+            // Enrich with creator name
+            if (!string.IsNullOrEmpty(task.CreatedBy))
+            {
+                var creator = await _userRepo.GetByIdAsync(task.CreatedBy);
+                dto.CreatedByName = creator?.DisplayName ?? creator?.Username ?? "Unknown";
+            }
+
+            // Enrich with updater name
+            if (!string.IsNullOrEmpty(task.UpdatedBy))
+            {
+                var updater = await _userRepo.GetByIdAsync(task.UpdatedBy);
+                dto.UpdatedByName = updater?.DisplayName ?? updater?.Username ?? "Unknown";
+            }
+
+            result.Add(dto);
+        }
+
+        return Ok(result);
     }
 
     /// <summary>
@@ -99,6 +170,7 @@ public class PurchaseTasksController : ControllerBase
             task.PartId,
             task.RequiredQty,
             userId,
+            StockSourceType.Purchase,
             $"采购入库: {task.PartName} x{task.RequiredQty}");
 
         // 更新选型单配件的待采购数量为 0
@@ -178,4 +250,31 @@ public class UpdateStatusRequest
 public class ReceiveRequest
 {
     public string? Remark { get; set; }
+}
+
+/// <summary>
+/// 采购任务列表 DTO（带关联信息）
+/// </summary>
+public class PurchaseTaskListDto
+{
+    public string Id { get; set; }
+    public string SelectionPlanId { get; set; }
+    public string SelectionItemId { get; set; }
+    public string PartId { get; set; }
+    public string PartName { get; set; }
+    public int LockedQty { get; set; }
+    public int RequiredQty { get; set; }
+    public PurchaseTaskStatus Status { get; set; }
+    public string CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? Remark { get; set; }
+
+    // 关联信息
+    public string? SelectionPlanName { get; set; }
+    public string? ProjectId { get; set; }
+    public string? ProjectName { get; set; }
+    public string? CreatedByName { get; set; }
+    public string? UpdatedByName { get; set; }
 }

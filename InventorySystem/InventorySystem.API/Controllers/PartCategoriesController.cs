@@ -51,6 +51,11 @@ public class PartCategoriesController : ControllerBase
     [Authorize(Roles = "admin,warehouse")]
     public async Task<IActionResult> Create([FromBody] PartCategory category)
     {
+        // Check for duplicate name at same level
+        var siblings = await _repo.GetByParentIdAsync(category.ParentId);
+        if (siblings.Any(s => s.Name == category.Name && s.Id != category.Id))
+            return BadRequest(new { message = $"同级分类中已存在名称为 '{category.Name}' 的分类" });
+
         category.CreatedAt = DateTime.UtcNow;
 
         // 如果指定了模板，复制规格参数
@@ -73,6 +78,14 @@ public class PartCategoriesController : ControllerBase
     {
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null) return NotFound();
+
+        // Check for duplicate name at same level (excluding self)
+        if (category.Name != existing.Name)
+        {
+            var siblings = await _repo.GetByParentIdAsync(existing.ParentId);
+            if (siblings.Any(s => s.Name == category.Name && s.Id != id))
+                return BadRequest(new { message = $"同级分类中已存在名称为 '{category.Name}' 的分类" });
+        }
 
         // 如果模板ID改变，重新复制规格参数
         if (category.SpecTemplateId != existing.SpecTemplateId)

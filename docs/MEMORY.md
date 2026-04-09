@@ -168,4 +168,20 @@ Three-layer clean architecture:
 **Run**: `node test-project-selection-lock.js`
 
 # currentDate
-Today's date is 2026-03-13.
+Today's date is 2026-04-08.
+
+## 库存管理增强 - 进行中 (2026-04-08)
+
+**设计文档**: `docs/INVENTORY-MANAGEMENT-ENHANCEMENT.md`
+
+### 已完成
+- [x] 库存页面组件化拆分（Tab 切换）
+- [x] 库存总览/流水/锁定状态 页面
+- [x] 入库表单：普通入库/采购入库/归还入库
+- [x] 出库表单：项目→自动加载选型单
+- [x] 锁定/解锁表单
+- [x] Ant Design 风格统一
+
+### 待完成
+- [ ] 后端：多配件采购任务支持（Items 列表）
+- [ ] 回归测试

@@ -43,7 +43,7 @@
     <div class="panel-card">
       <div class="table-header">
         <span class="table-title">库存流水</span>
-        <span class="table-count">共 {{ filteredTransactions.length }} 条</span>
+        <span class="table-count">共 {{ totalCount }} 条</span>
       </div>
       <el-table
         :data="pagedTransactions"
@@ -101,18 +101,18 @@
         <el-table-column prop="note" label="备注" min-width="150" show-overflow-tooltip />
       </el-table>
 
-      <div class="pagination-wrapper" v-if="filteredTransactions.length > 0">
+      <div class="pagination-wrapper" v-if="totalCount > 0">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :page-sizes="[20, 50, 100, 200]"
-          :total="filteredTransactions.length"
+          :total="totalCount"
           layout="total, sizes, prev, pager, next"
           background
         />
       </div>
 
-      <el-empty v-if="!loading && allTransactions.length === 0" description="暂无流水记录" />
+      <el-empty v-if="!loading && totalCount === 0" description="暂无流水记录" />
     </div>
   </div>
 </template>
@@ -124,6 +124,7 @@ import { getTransactions } from '@/api/stock'
 
 const loading = ref(false)
 const allTransactions = ref([])
+const totalCount = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 
@@ -132,23 +133,9 @@ const filterType = ref('')
 const filterSourceType = ref('')
 const keyword = ref('')
 
-// Filtered
-const filteredTransactions = computed(() => {
-  return allTransactions.value.filter(t => {
-    if (keyword.value) {
-      const kw = keyword.value.toLowerCase()
-      if (!t.partName.toLowerCase().includes(kw) && !t.partModel?.toLowerCase().includes(kw)) {
-        return false
-      }
-    }
-    return true
-  })
-})
-
 // Paged
 const pagedTransactions = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredTransactions.value.slice(start, start + pageSize.value)
+  return allTransactions.value
 })
 
 onMounted(() => {
@@ -165,9 +152,13 @@ const loadData = async () => {
     }
     if (filterType.value) params.type = filterType.value
     if (filterSourceType.value) params.sourceType = parseInt(filterSourceType.value)
+    params.page = currentPage.value
+    params.pageSize = pageSize.value
 
     const res = await getTransactions(params)
-    allTransactions.value = res.data || []
+    const data = res.data || { items: [], totalCount: 0 }
+    allTransactions.value = data.items || []
+    totalCount.value = data.totalCount || 0
     currentPage.value = 1
   } catch (error) {
     ElMessage.error('加载流水记录失败')

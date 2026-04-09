@@ -17,7 +17,6 @@ public class PurchaseTask
     public string SelectionPlanId { get; set; } = string.Empty;
 
     /// <summary>关联的选型配件ID</summary>
-    [BsonRepresentation(BsonType.ObjectId)]
     public string SelectionItemId { get; set; } = string.Empty;
 
     /// <summary>配件ID</summary>

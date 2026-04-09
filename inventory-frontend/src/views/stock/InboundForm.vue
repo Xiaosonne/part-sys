@@ -308,6 +308,7 @@ const handleNormalInbound = async () => {
     })
     ElMessage.success('入库成功')
     normalForm.value = { partId: '', quantity: 1, note: '' }
+    await loadParts()
   } catch (error) {
     ElMessage.error(error.response?.data?.message || '入库失败')
   } finally {

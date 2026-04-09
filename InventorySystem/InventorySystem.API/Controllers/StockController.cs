@@ -68,9 +68,9 @@ public class StockController : ControllerBase
     [HttpGet("transactions")]
     public async Task<IActionResult> GetTransactions([FromQuery] TransactionQueryDto query)
     {
-        var transactions = await _txRepo.QueryAsync(query);
-        var dtos = await EnrichTransactionDtos(transactions);
-        return Ok(dtos);
+        var result = await _txRepo.QueryWithCountAsync(query);
+        var dtos = await EnrichTransactionDtos(result.Items);
+        return Ok(new { items = dtos, totalCount = result.TotalCount });
     }
 
     /// <summary>获取单个配件的完整流水</summary>
@@ -135,7 +135,7 @@ public class StockController : ControllerBase
     public async Task<IActionResult> Inbound([FromBody] InboundRequestDto req)
     {
         var operatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
-        await _stockService.InboundAsync(req.PartId, req.Quantity, operatorId, req.Note);
+        await _stockService.InboundAsync(req.PartId, req.Quantity, operatorId, req.SourceType, req.Note);
         return Ok(new { message = "入库成功" });
     }
 
@@ -167,7 +167,7 @@ public class StockController : ControllerBase
         var operatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         try
         {
-            await _stockService.LockAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, null, null, req.Note);
+            await _stockService.LockAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, req.SelectionPlanId, req.SelectionItemId, req.Note);
             return Ok(new { message = "锁定成功" });
         }
         catch (InvalidOperationException ex)
