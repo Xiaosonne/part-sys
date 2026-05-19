@@ -130,3 +130,11 @@ scripts/node_modules/
 inventory-frontend/scripts/node_modules/
 inventory-frontend/tests/*txt
 .gstack/
+截图/
+docs/
+.claude
+inventory-frontend/.gstack/
+InventorySystem/.gstack/
+inventory-frontend/dist
+
+
