@@ -1,6 +1,6 @@
 # PartSelectionSystem
 
-> 本文件为 Claude Code 工作指引，项目根目录
+> 本文件为 Claude Code 工作指引，项目根目录 
 
 ## 🚀 快速启动
 
