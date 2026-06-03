@@ -74,6 +74,26 @@ export type StockLockSummary = {
 	locks: StockLockDetail[];
 };
 
+export type StockTransaction = {
+	id: string;
+	type: string;
+	partId: string;
+	partName: string;
+	partModel: string;
+	quantity: number;
+	sourceType: number;
+	sourceTypeName: string;
+	operatorId: string;
+	operatorName: string;
+	projectId?: string;
+	projectName?: string;
+	selectionPlanId?: string;
+	selectionPlanName?: string;
+	usage?: string;
+	note?: string;
+	createdAt: string;
+};
+
 export function getParts() {
 	return request({
 		url: '/api/parts',
@@ -115,6 +135,14 @@ export function getStockLocksByPartId(partId: string) {
 	return request({
 		url: `/api/stock/locks/${partId}`,
 		method: 'get',
+	});
+}
+
+export function getTransactions(params: any) {
+	return request({
+		url: '/api/stock/transactions',
+		method: 'get',
+		params,
 	});
 }
 

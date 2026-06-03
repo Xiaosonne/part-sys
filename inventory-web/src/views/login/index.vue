@@ -141,7 +141,7 @@ const signInSuccess = (isNoPower: boolean | undefined) => {
 				query: Object.keys(<string>route.query?.params).length > 0 ? JSON.parse(<string>route.query?.params) : '',
 			});
 		} else {
-			router.push('/system/menu');
+			router.push('/accessoryManagement/accessoryList');
 		}
 	}
 };
