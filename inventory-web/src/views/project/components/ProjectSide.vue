@@ -25,9 +25,19 @@
 				>
 					<template #default="{ node, data }">
 						<span class="custom-tree-node">
-							<el-icon v-if="data.type === 'folder'" class="mr5"><ele-Folder /></el-icon>
-							<el-icon v-else class="mr5"><ele-Memo /></el-icon>
-							<span>{{ node.label }}</span>
+							<template v-if="data.type === 'folder'">
+								<el-icon class="mr5 folder-icon"><ele-Folder /></el-icon>
+							</template>
+							<template v-else-if="data.type === 'project'">
+								<el-icon class="mr5 project-icon"><ele-Memo /></el-icon>
+							</template>
+							<template v-else-if="data.type === 'selection'">
+								<el-icon class="mr5 selection-icon"><ele-DocumentCopy /></el-icon>
+							</template>
+							<span class="node-label">{{ node.label }}</span>
+							<el-tag v-if="data.type === 'selection'" size="small" :type="statusType(data.status)" class="ml5 status-tag">
+								{{ statusText(data.status) }}
+							</el-tag>
 						</span>
 					</template>
 				</el-tree>
@@ -71,7 +81,14 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { getProjects, createProject } from '/@/api/project';
+import { getProjects, createProject, getSelections } from '/@/api/project';
+
+const props = defineProps({
+	showSelections: {
+		type: Boolean,
+		default: false,
+	},
+});
 
 const emit = defineEmits(['node-click']);
 
@@ -79,6 +96,7 @@ const treeRef = ref();
 const state = reactive({
 	search: '',
 	projects: [] as any[],
+	selections: [] as any[],
 	dialog: {
 		visible: false,
 		title: '新建项目/文件夹',
@@ -94,22 +112,42 @@ const state = reactive({
 // 构建树形结构
 const treeData = computed(() => {
 	const build = (parentId: string | null = null): any[] => {
-		return state.projects
+		const nodes = state.projects
 			.filter((p) => p.parentId === parentId)
-			.map((p) => ({
-				...p,
-				children: build(p.id),
-			}));
+			.map((p) => {
+				const children = build(p.id);
+				// 如果开启了显示选型单，且当前节点是项目，则将该项目的选型单加入子节点
+				if (props.showSelections && p.type === 'project') {
+					const projectSelections = state.selections
+						.filter((s) => s.projectId === p.id)
+						.map((s) => ({
+							...s,
+							type: 'selection',
+							id: `sel_${s.id}`, // 避免与项目 ID 冲突
+							_selection: s, // 保留原始对象
+						}));
+					children.push(...projectSelections);
+				}
+				return {
+					...p,
+					children,
+				};
+			});
+		return nodes;
 	};
 	return build(null);
 });
 
 const loadData = async () => {
 	try {
-		const res = (await getProjects()) as any;
-		state.projects = res || [];
+		const [projRes, selRes] = await Promise.all([
+			getProjects(),
+			props.showSelections ? getSelections() : Promise.resolve([]),
+		]);
+		state.projects = (projRes as any) || [];
+		state.selections = (selRes as any) || [];
 	} catch (err) {
-		ElMessage.error('加载项目列表失败');
+		ElMessage.error('加载列表失败');
 	}
 };
 
@@ -153,6 +191,18 @@ const onSubmit = async () => {
 	}
 };
 
+const formatDate = (d: string) => (d ? new Date(d).toLocaleString('zh-CN') : '-');
+
+const statusType = (status: any) => {
+	const map: any = { Draft: 'info', Submitted: 'warning', Completed: 'success', Cancelled: 'danger', 0: 'info', 1: 'warning', 2: 'success', 3: 'danger' };
+	return map[status] || 'info';
+};
+
+const statusText = (status: any) => {
+	const map: any = { Draft: '草稿', Submitted: '已提交', Completed: '已完成', Cancelled: '已取消', 0: '草稿', 1: '已提交', 2: '已完成', 3: '已取消' };
+	return map[status] || status;
+};
+
 onMounted(() => {
 	loadData();
 });
@@ -182,9 +232,28 @@ defineExpose({
 	display: flex;
 	align-items: center;
 	font-size: 14px;
+	width: 100%;
+	overflow: hidden;
+}
+.node-label {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.folder-icon { color: #e6a23c; }
+.project-icon { color: #409eff; }
+.selection-icon { color: #67c23a; }
+.status-tag {
+	flex-shrink: 0;
+	transform: scale(0.8);
+	margin-left: -5px;
 }
 .mr5 {
 	margin-right: 5px;
+}
+.ml5 {
+	margin-left: 5px;
 }
 .mt10 {
 	margin-top: 10px;

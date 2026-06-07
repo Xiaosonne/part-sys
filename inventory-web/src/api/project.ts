@@ -84,3 +84,64 @@ export function reinitializeProjectWorkspace(projectId: string) {
 		method: 'post',
 	});
 }
+
+// 选型管理相关
+export function getSelections(projectId?: string) {
+	return request({
+		url: '/api/selections',
+		method: 'get',
+		params: { projectId },
+	});
+}
+
+export function getSelection(id: string) {
+	return request({
+		url: `/api/selections/${id}`,
+		method: 'get',
+	});
+}
+
+export function createSelection(data: any) {
+	return request({
+		url: '/api/selections',
+		method: 'post',
+		data,
+	});
+}
+
+export function updateSelection(id: string, data: any) {
+	return request({
+		url: `/api/selections/${id}`,
+		method: 'put',
+		data,
+	});
+}
+
+export function deleteSelection(id: string) {
+	return request({
+		url: `/api/selections/${id}`,
+		method: 'delete',
+	});
+}
+
+export function submitSelection(id: string) {
+	return request({
+		url: `/api/selections/${id}/submit`,
+		method: 'post',
+	});
+}
+
+export function cancelSelection(id: string) {
+	return request({
+		url: `/api/selections/${id}/cancel`,
+		method: 'post',
+	});
+}
+
+export function outboundSelection(planId: string, itemId: string, params: { qty: number; recipientId?: string; recipientName?: string }) {
+	return request({
+		url: `/api/selections/${planId}/items/${itemId}/outbound`,
+		method: 'post',
+		params,
+	});
+}
