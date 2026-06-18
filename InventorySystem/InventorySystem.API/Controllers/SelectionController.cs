@@ -15,13 +15,9 @@ public class SelectionController : ControllerBase
     private readonly ISelectionService _selectionService;
 
     public SelectionController(
-        ISelectionPlanRepository repo,
-        IPartRepository partRepo,
-        ISelectionService selectionService)
+        ISelectionPlanRepository repo, IPartRepository partRepo, ISelectionService selectionService)
     {
-        _repo = repo;
-        _partRepo = partRepo;
-        _selectionService = selectionService;
+        _repo = repo; _partRepo = partRepo; _selectionService = selectionService;
     }
 
     [HttpGet]
@@ -55,9 +51,9 @@ public class SelectionController : ControllerBase
     {
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null) return NotFound();
-        plan.Id = id;
-        plan.CreatedBy = existing.CreatedBy;
-        plan.CreatedAt = existing.CreatedAt;
+        if (existing.Status != SelectionPlanStatus.Draft)
+            return BadRequest(new { message = "只能编辑草稿状态的选型单" });
+        plan.Id = id; plan.CreatedBy = existing.CreatedBy; plan.CreatedAt = existing.CreatedAt;
         await _repo.UpdateAsync(id, plan);
         return Ok(plan);
     }
@@ -67,13 +63,11 @@ public class SelectionController : ControllerBase
     {
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null) return NotFound();
+        // 允许删除任意状态的选型单，但需确保已锁定的库存已经解锁
         await _repo.DeleteAsync(id);
         return NoContent();
     }
 
-    /// <summary>
-    /// 提交选型单 - 锁定库存，库存不够时生成采购任务
-    /// </summary>
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(string id)
     {
@@ -83,48 +77,25 @@ public class SelectionController : ControllerBase
             var result = await _selectionService.SubmitAsync(id, userId);
             return Ok(result);
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>
-    /// 配件出库 - 从已锁定的配件中出库
-    /// </summary>
     [HttpPost("{planId}/items/{itemId}/outbound")]
     public async Task<IActionResult> Outbound(
-        string planId,
-        string itemId,
-        [FromQuery] int qty,
-        [FromQuery] string? recipientId,
-        [FromQuery] string? recipientName)
+        string planId, string itemId,
+        [FromQuery] int qty, [FromQuery] string? recipientId, [FromQuery] string? recipientName)
     {
         try
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
             var plan = await _repo.GetByIdAsync(planId);
             if (plan == null) return NotFound(new { message = "选型单不存在" });
-
-            var result = await _selectionService.OutboundAsync(
-                planId,
-                itemId,
-                qty,
-                userId,
-                plan.ProjectId,
-                recipientId,
-                recipientName);
+            var result = await _selectionService.OutboundAsync(planId, itemId, qty, userId, plan.ProjectId, recipientId, recipientName);
             return Ok(result);
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>
-    /// 取消选型单 - 解锁所有未出库的配件
-    /// </summary>
     [HttpPost("{id}/cancel")]
     public async Task<IActionResult> Cancel(string id)
     {
@@ -134,10 +105,7 @@ public class SelectionController : ControllerBase
             await _selectionService.CancelAsync(id, userId);
             return Ok(new { message = "选型单已取消" });
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpGet("{id}/match")]
@@ -145,13 +113,10 @@ public class SelectionController : ControllerBase
     {
         var plan = await _repo.GetByIdAsync(id);
         if (plan == null) return NotFound();
-
         var item = plan.Items.FirstOrDefault(i => i.Id == itemId);
         if (item == null) return NotFound(new { message = "条目不存在" });
 
-        // 根据分类筛选配件（暂不支持详细过滤条件）
-        var criteria = new List<(string key, string op, string value)>();
-        var matched = await _partRepo.FilterBySpecsAsync(item.Category, criteria);
+        var matched = await _partRepo.FilterBySpecsAsync(item.Category, new());
         return Ok(matched.Select(p => new
         {
             p.Id, p.Name, p.Model, p.Brand, p.Category,

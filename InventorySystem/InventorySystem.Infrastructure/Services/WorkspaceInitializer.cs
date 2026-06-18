@@ -1,5 +1,6 @@
 using InventorySystem.Core.Interfaces;
 using InventorySystem.Core.Models;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,66 +11,63 @@ public class WorkspaceInitializer : IWorkspaceInitializer
     private readonly IFileStorageService _storageService;
     private readonly IWorkspaceStructureRepository _workspaceStructureRepo;
     private readonly string _configPath;
+    private readonly ILogger<WorkspaceInitializer> _logger;
 
-    public WorkspaceInitializer(IFileStorageService storageService, IWorkspaceStructureRepository workspaceStructureRepo, string configPath)
+    public WorkspaceInitializer(
+        IFileStorageService storageService,
+        IWorkspaceStructureRepository workspaceStructureRepo,
+        string configPath,
+        ILogger<WorkspaceInitializer> logger)
     {
         _storageService = storageService;
         _workspaceStructureRepo = workspaceStructureRepo;
         _configPath = configPath;
+        _logger = logger;
     }
 
     public async Task InitializeProjectWorkspaceAsync(string projectId)
     {
-        try
+        _logger.LogInformation("Starting workspace initialization for project: {ProjectId}", projectId);
+        _logger.LogDebug("Config path: {ConfigPath}, exists: {Exists}", _configPath, File.Exists(_configPath));
+
+        if (!File.Exists(_configPath))
         {
-            Console.WriteLine($"[WorkspaceInitializer] Starting initialization for project: {projectId}");
-            Console.WriteLine($"[WorkspaceInitializer] Config path: {_configPath}");
-            Console.WriteLine($"[WorkspaceInitializer] Config exists: {File.Exists(_configPath)}");
-
-            if (!File.Exists(_configPath))
-            {
-                Console.WriteLine($"[WorkspaceInitializer] Config file not found at: {_configPath}");
-                return;
-            }
-
-            var json = await File.ReadAllTextAsync(_configPath);
-            Console.WriteLine($"[WorkspaceInitializer] Config content length: {json.Length}");
-
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var config = JsonSerializer.Deserialize<WorkspaceConfig>(json, options);
-
-            if (config?.WorkspaceAreas == null)
-            {
-                Console.WriteLine($"[WorkspaceInitializer] Config or WorkspaceAreas is null");
-                return;
-            }
-
-            Console.WriteLine($"[WorkspaceInitializer] Found {config.WorkspaceAreas.Count} workspace areas");
-
-            // Create physical folders
-            foreach (var area in config.WorkspaceAreas)
-            {
-                Console.WriteLine($"[WorkspaceInitializer] Creating area: {area.Id}");
-                await CreateFolderRecursiveAsync(projectId, area, "");
-            }
-
-            // Build nested structure for database
-            var structure = new WorkspaceStructure
-            {
-                ProjectId = projectId,
-                Structure = config.WorkspaceAreas.Select(a => BuildWorkspaceNode(a)).ToList(),
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await _workspaceStructureRepo.UpdateAsync(projectId, structure);
-            Console.WriteLine($"[WorkspaceInitializer] Initialization completed for project: {projectId}");
+            _logger.LogWarning("Workspace config file not found: {ConfigPath}", _configPath);
+            return;
         }
-        catch (Exception ex)
+
+        var json = await File.ReadAllTextAsync(_configPath);
+        _logger.LogDebug("Config content length: {Length}", json.Length);
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var config = JsonSerializer.Deserialize<WorkspaceConfig>(json, options);
+
+        if (config?.WorkspaceAreas == null)
         {
-            Console.WriteLine($"[WorkspaceInitializer] ERROR: {ex.Message}");
-            Console.WriteLine($"[WorkspaceInitializer] Stack trace: {ex.StackTrace}");
+            _logger.LogWarning("Config or WorkspaceAreas is null");
+            return;
         }
+
+        _logger.LogInformation("Found {Count} workspace areas", config.WorkspaceAreas.Count);
+
+        // Create physical folders
+        foreach (var area in config.WorkspaceAreas)
+        {
+            _logger.LogDebug("Creating area: {AreaId}", area.Id);
+            await CreateFolderRecursiveAsync(projectId, area, "");
+        }
+
+        // Build nested structure for database
+        var structure = new WorkspaceStructure
+        {
+            ProjectId = projectId,
+            Structure = config.WorkspaceAreas.Select(a => BuildWorkspaceNode(a)).ToList(),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _workspaceStructureRepo.UpdateAsync(projectId, structure);
+        _logger.LogInformation("Workspace initialization completed for project: {ProjectId}", projectId);
     }
 
     private WorkspaceNode BuildWorkspaceNode(WorkspaceArea area)
@@ -86,7 +84,7 @@ public class WorkspaceInitializer : IWorkspaceInitializer
     {
         var folderPath = string.IsNullOrEmpty(parentPath) ? area.Id : $"{parentPath}/{area.Id}";
         var fullPath = $"{projectId}/{folderPath}";
-        Console.WriteLine($"[WorkspaceInitializer] Creating folder: {fullPath}");
+        _logger.LogDebug("Creating folder: {FullPath}", fullPath);
 
         await _storageService.CreateFolderAsync("projects", fullPath);
 

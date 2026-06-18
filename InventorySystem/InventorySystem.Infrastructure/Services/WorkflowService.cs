@@ -1,7 +1,6 @@
 using InventorySystem.Core.Interfaces;
 using InventorySystem.Core.Models;
 using Serilog;
-using System.Text.Json;
 
 namespace InventorySystem.Infrastructure.Services;
 
@@ -29,30 +28,7 @@ public class WorkflowService : IWorkflowService
     /// </summary>
     private Dictionary<string, object> ConvertFormData(Dictionary<string, object>? formData)
     {
-        if (formData == null) return new Dictionary<string, object>();
-
-        var result = new Dictionary<string, object>();
-        foreach (var kvp in formData)
-        {
-            if (kvp.Value is JsonElement jsonElement)
-            {
-                result[kvp.Key] = jsonElement.ValueKind switch
-                {
-                    JsonValueKind.String => jsonElement.GetString() ?? string.Empty,
-                    JsonValueKind.Number => jsonElement.TryGetInt64(out var l) ? l : jsonElement.GetDouble(),
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    JsonValueKind.Array => jsonElement.EnumerateArray().Select(x => x.ToString()).ToList(),
-                    JsonValueKind.Null => string.Empty,
-                    _ => jsonElement.ToString()
-                };
-            }
-            else
-            {
-                result[kvp.Key] = kvp.Value ?? string.Empty;
-            }
-        }
-        return result;
+        return FormDataConverter.Convert(formData);
     }
 
     public async Task<WorkflowDefinition> CreateDefinitionAsync(WorkflowDefinition definition)
@@ -175,17 +151,23 @@ public class WorkflowTaskService : IWorkflowTaskService
     private readonly IWorkflowInstanceRepository _instanceRepo;
     private readonly IWorkflowDefinitionRepository _definitionRepo;
     private readonly IWorkflowHistoryRepository _historyRepo;
+    private readonly ISelectionService _selectionService;
+    private readonly ISelectionPlanRepository _selectionPlanRepo;
 
     public WorkflowTaskService(
         IWorkflowTaskRepository taskRepo,
         IWorkflowInstanceRepository instanceRepo,
         IWorkflowDefinitionRepository definitionRepo,
-        IWorkflowHistoryRepository historyRepo)
+        IWorkflowHistoryRepository historyRepo,
+        ISelectionService selectionService,
+        ISelectionPlanRepository selectionPlanRepo)
     {
         _taskRepo = taskRepo;
         _instanceRepo = instanceRepo;
         _definitionRepo = definitionRepo;
         _historyRepo = historyRepo;
+        _selectionService = selectionService;
+        _selectionPlanRepo = selectionPlanRepo;
     }
 
     public async Task<List<WorkflowTask>> GetPendingTasksAsync(string userId) =>
@@ -205,6 +187,9 @@ public class WorkflowTaskService : IWorkflowTaskService
         var task = await _taskRepo.GetByIdAsync(taskId);
         if (task == null)
             throw new InvalidOperationException($"Task {taskId} not found");
+
+        if (task.Status != "Pending")
+            throw new InvalidOperationException($"Task {taskId} is already {task.Status}, cannot approve");
 
         // 转换 formData 中的 JsonElement 为基本类型
         var convertedFormData = ConvertFormData(formData);
@@ -279,6 +264,9 @@ public class WorkflowTaskService : IWorkflowTaskService
         if (task == null)
             throw new InvalidOperationException($"Task {taskId} not found");
 
+        if (task.Status != "Pending")
+            throw new InvalidOperationException($"Task {taskId} is already {task.Status}, cannot reject");
+
         task.Status = "Rejected";
         task.Comment = comment;
         task.CompletedAt = DateTime.UtcNow;
@@ -303,48 +291,31 @@ public class WorkflowTaskService : IWorkflowTaskService
             instance.Status = "Rejected";
             instance.UpdatedAt = DateTime.UtcNow;
             await _instanceRepo.UpdateAsync(instance.Id!, instance);
+
+            // Auto-unlock selection plan stock if workflow is linked to a submitted plan
+            if (instance.EntityType == "SelectionPlan" && !string.IsNullOrEmpty(instance.EntityId))
+            {
+                try
+                {
+                    var plan = await _selectionPlanRepo.GetByIdAsync(instance.EntityId);
+                    if (plan != null && plan.Status == SelectionPlanStatus.Submitted)
+                    {
+                        await _selectionService.CancelAsync(instance.EntityId, instance.StartedBy);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't fail the rejection
+                    Serilog.Log.Warning(ex,
+                        "Failed to auto-unlock selection plan {PlanId} after workflow rejection",
+                        instance.EntityId);
+                }
+            }
         }
     }
 
     private Dictionary<string, object> ConvertFormData(Dictionary<string, object>? formData)
     {
-        if (formData == null)
-            return new();
-
-        var result = new Dictionary<string, object>();
-        foreach (var kvp in formData)
-        {
-            result[kvp.Key] = ConvertValue(kvp.Value);
-        }
-        return result;
-    }
-
-    private object ConvertValue(object? value)
-    {
-        if (value == null)
-            return string.Empty;
-
-        if (value is JsonElement jsonElement)
-        {
-            return jsonElement.ValueKind switch
-            {
-                JsonValueKind.Null => string.Empty,
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Number => jsonElement.TryGetInt32(out var intVal) ? intVal :
-                                       jsonElement.TryGetInt64(out var longVal) ? longVal :
-                                       jsonElement.TryGetDouble(out var doubleVal) ? doubleVal :
-                                       jsonElement.GetRawText(),
-                JsonValueKind.String => jsonElement.GetString() ?? string.Empty,
-                JsonValueKind.Array => jsonElement.EnumerateArray()
-                    .Select(e => ConvertValue(e))
-                    .ToList(),
-                JsonValueKind.Object => jsonElement.EnumerateObject()
-                    .ToDictionary(p => p.Name, p => ConvertValue(p.Value)),
-                _ => jsonElement.GetRawText()
-            };
-        }
-
-        return value;
+        return FormDataConverter.Convert(formData);
     }
 }

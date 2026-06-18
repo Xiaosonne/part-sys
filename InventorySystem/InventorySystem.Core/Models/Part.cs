@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace InventorySystem.Core.Models;
 
+[BsonIgnoreExtraElements]
 public class Part
 {
     [BsonId]
@@ -24,8 +25,14 @@ public class Part
     public List<SpecValue> Specs { get; set; } = new();
 
     public int TotalQty { get; set; }
-    public int AvailableQty { get; set; }
     public int LockedQty { get; set; }
+
+    /// <summary>可用库存 = 总库存 - 锁定库存，不持久化存储</summary>
+    [BsonIgnore]
+    public int AvailableQty => TotalQty - LockedQty;
+
+    /// <summary>乐观锁版本号 — 每次更新递增，防止并发覆盖</summary>
+    public int Version { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

@@ -80,8 +80,9 @@ try
     {
         var fileService = sp.GetRequiredService<IFileStorageService>();
         var workspaceStructureRepo = sp.GetRequiredService<IWorkspaceStructureRepository>();
+        var logger = sp.GetRequiredService<ILogger<WorkspaceInitializer>>();
         var configPath = Path.Combine(AppContext.BaseDirectory, "project-workspace-structure.json");
-        return new WorkspaceInitializer(fileService, workspaceStructureRepo, configPath);
+        return new WorkspaceInitializer(fileService, workspaceStructureRepo, configPath, logger);
     });
 
     // JWT Authentication

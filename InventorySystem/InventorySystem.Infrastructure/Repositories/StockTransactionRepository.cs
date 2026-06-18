@@ -21,6 +21,8 @@ public class StockTransactionRepository : MongoRepository<StockTransaction>, ISt
 
     public async Task<List<StockTransaction>> QueryAsync(TransactionQueryDto query)
     {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
         var builder = Builders<StockTransaction>.Filter;
         var filters = new List<FilterDefinition<StockTransaction>>();
 
@@ -49,13 +51,15 @@ public class StockTransactionRepository : MongoRepository<StockTransaction>, ISt
 
         return await _collection.Find(filter)
             .SortByDescending(t => t.CreatedAt)
-            .Skip((query.Page - 1) * query.PageSize)
-            .Limit(query.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
             .ToListAsync();
     }
 
     public async Task<TransactionListResponseDto> QueryWithCountAsync(TransactionQueryDto query)
     {
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
         var builder = Builders<StockTransaction>.Filter;
         var filters = new List<FilterDefinition<StockTransaction>>();
 
@@ -85,8 +89,8 @@ public class StockTransactionRepository : MongoRepository<StockTransaction>, ISt
         var totalCount = await _collection.CountDocumentsAsync(filter);
         var items = await _collection.Find(filter)
             .SortByDescending(t => t.CreatedAt)
-            .Skip((query.Page - 1) * query.PageSize)
-            .Limit(query.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
             .ToListAsync();
 
         return new TransactionListResponseDto { Items = items, TotalCount = totalCount };
@@ -94,25 +98,26 @@ public class StockTransactionRepository : MongoRepository<StockTransaction>, ISt
 
     public async Task<List<StockTransaction>> GetLocksByPartIdAsync(string partId)
     {
-        // LOCK and SelectionLock type transactions that haven't been unlocked
+        // Get both LOCK and UNLOCK type transactions to compute net locks
         return await _collection.Find(t =>
             t.PartId == partId &&
-            (t.Type == "LOCK" || t.Type == "SelectionLock")
+            (t.Type == "LOCK" || t.Type == "SelectionLock" || t.Type == "UNLOCK")
         ).SortByDescending(t => t.CreatedAt).ToListAsync();
     }
 
     public async Task<Dictionary<string, int>> GetLockSummaryByPartIdAsync(string partId)
     {
-        var locks = await GetLocksByPartIdAsync(partId);
+        var transactions = await GetLocksByPartIdAsync(partId);
         var summary = new Dictionary<string, int>();
 
-        foreach (var lockTx in locks)
+        foreach (var tx in transactions)
         {
-            var key = $"{lockTx.ProjectId}|{lockTx.SelectionPlanId}|{lockTx.SelectionItemId}";
+            var key = $"{tx.ProjectId}|{tx.SelectionPlanId}|{tx.SelectionItemId}";
+            var delta = (tx.Type == "LOCK" || tx.Type == "SelectionLock") ? tx.Quantity : -tx.Quantity;
             if (summary.ContainsKey(key))
-                summary[key] += lockTx.Quantity;
+                summary[key] += delta;
             else
-                summary[key] = lockTx.Quantity;
+                summary[key] = delta;
         }
 
         return summary;

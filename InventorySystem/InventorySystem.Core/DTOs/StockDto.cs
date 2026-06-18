@@ -2,9 +2,6 @@ using InventorySystem.Core.Models;
 
 namespace InventorySystem.Core.DTOs;
 
-/// <summary>
-/// 库存总览 Dto - 按配件聚合显示
-/// </summary>
 public class StockOverviewDto
 {
     public string PartId { get; set; } = string.Empty;
@@ -14,13 +11,10 @@ public class StockOverviewDto
     public int TotalQty { get; set; }
     public int LockedQty { get; set; }
     public int AvailableQty { get; set; }
-    public int PendingPurchaseQty { get; set; }  // 待采购数量（汇总所有 Pending 状态的 PurchaseTask）
+    public int PendingPurchaseQty { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// 库存流水 Dto - 完整的操作记录（带冗余显示字段）
-/// </summary>
 public class StockTransactionDto
 {
     public string Id { get; set; } = string.Empty;
@@ -47,9 +41,6 @@ public class StockTransactionDto
     public DateTime CreatedAt { get; set; }
 }
 
-/// <summary>
-/// 库存锁定汇总 Dto - 按配件分组显示所有锁定
-/// </summary>
 public class StockLockSummaryDto
 {
     public string PartId { get; set; } = string.Empty;
@@ -60,9 +51,6 @@ public class StockLockSummaryDto
     public List<LockDetail> Locks { get; set; } = new();
 }
 
-/// <summary>
-/// 单条锁定明细
-/// </summary>
 public class LockDetail
 {
     public string TransactionId { get; set; } = string.Empty;
@@ -77,9 +65,6 @@ public class LockDetail
     public DateTime LockedAt { get; set; }
 }
 
-/// <summary>
-/// 入库请求 Dto
-/// </summary>
 public class InboundRequestDto
 {
     public string PartId { get; set; } = string.Empty;
@@ -91,9 +76,6 @@ public class InboundRequestDto
     public string? Note { get; set; }
 }
 
-/// <summary>
-/// 出库请求 Dto
-/// </summary>
 public class OutboundRequestDto
 {
     public string PartId { get; set; } = string.Empty;
@@ -107,9 +89,6 @@ public class OutboundRequestDto
     public string? Note { get; set; }
 }
 
-/// <summary>
-/// 锁定请求 Dto
-/// </summary>
 public class LockRequestDto
 {
     public string PartId { get; set; } = string.Empty;
@@ -117,12 +96,10 @@ public class LockRequestDto
     public string? ProjectId { get; set; }
     public string? SelectionPlanId { get; set; }
     public string? SelectionItemId { get; set; }
+    public StockSourceType SourceType { get; set; } = StockSourceType.Manual;
     public string? Note { get; set; }
 }
 
-/// <summary>
-/// 解锁请求 Dto
-/// </summary>
 public class UnlockRequestDto
 {
     public string PartId { get; set; } = string.Empty;
@@ -130,12 +107,10 @@ public class UnlockRequestDto
     public string? ProjectId { get; set; }
     public string? SelectionPlanId { get; set; }
     public string? SelectionItemId { get; set; }
+    public StockSourceType SourceType { get; set; } = StockSourceType.Manual;
     public string? Note { get; set; }
 }
 
-/// <summary>
-/// 批量解锁请求 Dto
-/// </summary>
 public class BatchUnlockRequestDto
 {
     public string? PartId { get; set; }
@@ -144,9 +119,6 @@ public class BatchUnlockRequestDto
     public string? SelectionItemId { get; set; }
 }
 
-/// <summary>
-/// 库存流水查询参数
-/// </summary>
 public class TransactionQueryDto
 {
     public string? PartId { get; set; }
@@ -160,9 +132,6 @@ public class TransactionQueryDto
     public int PageSize { get; set; } = 50;
 }
 
-/// <summary>
-/// 库存流水分页响应
-/// </summary>
 public class TransactionListResponseDto
 {
     public List<StockTransaction> Items { get; set; } = new();

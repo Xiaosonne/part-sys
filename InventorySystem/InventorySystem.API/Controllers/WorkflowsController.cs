@@ -1,3 +1,4 @@
+using InventorySystem.Core.DTOs;
 using InventorySystem.Core.Interfaces;
 using InventorySystem.Core.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -6,6 +7,9 @@ using Serilog;
 
 namespace InventorySystem.API.Controllers;
 
+/// <summary>
+/// 工作流管理 — 流程定义 CRUD、流程实例启停、审批任务处理与历史
+/// </summary>
 [ApiController]
 [Route("api/workflows")]
 [Authorize]
@@ -16,7 +20,9 @@ public class WorkflowsController : ControllerBase
     private readonly IWorkflowHistoryRepository _historyRepo;
     private readonly IUserRepository _userRepo;
 
-    public WorkflowsController(IWorkflowService workflowService, IWorkflowTaskService taskService, IWorkflowHistoryRepository historyRepo, IUserRepository userRepo)
+    public WorkflowsController(
+        IWorkflowService workflowService, IWorkflowTaskService taskService,
+        IWorkflowHistoryRepository historyRepo, IUserRepository userRepo)
     {
         _workflowService = workflowService;
         _taskService = taskService;
@@ -24,7 +30,9 @@ public class WorkflowsController : ControllerBase
         _userRepo = userRepo;
     }
 
-    // Definitions
+    // ========== Definitions ==========
+
+    /// <summary>创建流程定义</summary>
     [HttpPost("definitions")]
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> CreateDefinition([FromBody] WorkflowDefinition definition)
@@ -35,13 +43,12 @@ public class WorkflowsController : ControllerBase
         return CreatedAtAction(nameof(GetDefinition), new { id = result.Id }, result);
     }
 
+    /// <summary>获取流程定义列表（可按分类筛选）</summary>
     [HttpGet("definitions")]
     public async Task<IActionResult> GetDefinitions([FromQuery] string? category)
-    {
-        var definitions = await _workflowService.GetDefinitionsAsync(category);
-        return Ok(definitions);
-    }
+        => Ok(await _workflowService.GetDefinitionsAsync(category));
 
+    /// <summary>获取流程定义详情</summary>
     [HttpGet("definitions/{id}")]
     public async Task<IActionResult> GetDefinition(string id)
     {
@@ -49,6 +56,7 @@ public class WorkflowsController : ControllerBase
         return definition == null ? NotFound() : Ok(definition);
     }
 
+    /// <summary>更新流程定义</summary>
     [HttpPut("definitions/{id}")]
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> UpdateDefinition(string id, [FromBody] WorkflowDefinition definition)
@@ -59,6 +67,7 @@ public class WorkflowsController : ControllerBase
         return Ok(definition);
     }
 
+    /// <summary>删除流程定义</summary>
     [HttpDelete("definitions/{id}")]
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> DeleteDefinition(string id)
@@ -69,16 +78,20 @@ public class WorkflowsController : ControllerBase
         return NoContent();
     }
 
-    // Instances
+    // ========== Instances ==========
+
+    /// <summary>启动流程实例</summary>
     [HttpPost("instances")]
     public async Task<IActionResult> StartInstance([FromBody] StartInstanceRequest request)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         var instance = await _workflowService.StartInstanceAsync(
-            request.DefinitionId, request.EntityType, request.EntityId, userId, request.SelectedFileIds, request.Name, request.FormData);
+            request.DefinitionId, request.EntityType, request.EntityId,
+            userId, request.SelectedFileIds, request.Name, request.FormData);
         return CreatedAtAction(nameof(GetInstance), new { id = instance.Id }, instance);
     }
 
+    /// <summary>获取流程实例详情（含关联用户和当前节点信息）</summary>
     [HttpGet("instances/{id}")]
     public async Task<IActionResult> GetInstance(string id)
     {
@@ -89,34 +102,26 @@ public class WorkflowsController : ControllerBase
         var definition = await _workflowService.GetDefinitionAsync(instance.DefinitionId);
         var currentNode = definition?.Nodes.FirstOrDefault(n => n.Id == instance.CurrentNodeId);
 
-        var dto = new WorkflowInstanceDetailDto
+        return Ok(new WorkflowInstanceDetailDto
         {
-            Id = instance.Id,
-            Name = instance.Name,
-            Status = instance.Status,
-            StartedBy = instance.StartedBy,
-            StartedByName = user?.Username ?? "Unknown",
-            StartedAt = instance.StartedAt,
-            CompletedAt = instance.CompletedAt,
-            CurrentNodeId = instance.CurrentNodeId,
-            CurrentNodeName = currentNode?.Name ?? "",
-            SelectedFileIds = instance.SelectedFileIds,
-            Definition = definition,
-            EntityType = instance.EntityType,
-            EntityId = instance.EntityId
-        };
-
-        return Ok(dto);
+            Id = instance.Id, Name = instance.Name, Status = instance.Status,
+            StartedBy = instance.StartedBy, StartedByName = user?.Username ?? "Unknown",
+            StartedAt = instance.StartedAt, CompletedAt = instance.CompletedAt,
+            CurrentNodeId = instance.CurrentNodeId, CurrentNodeName = currentNode?.Name ?? "",
+            SelectedFileIds = instance.SelectedFileIds, Definition = definition,
+            EntityType = instance.EntityType, EntityId = instance.EntityId
+        });
     }
 
+    /// <summary>获取我发起的流程实例列表</summary>
     [HttpGet("instances")]
     public async Task<IActionResult> GetMyInstances()
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
-        var instances = await _workflowService.GetInstancesByUserAsync(userId);
-        return Ok(instances);
+        return Ok(await _workflowService.GetInstancesByUserAsync(userId));
     }
 
+    /// <summary>取消流程实例</summary>
     [HttpPost("instances/{id}/cancel")]
     public async Task<IActionResult> CancelInstance(string id)
     {
@@ -126,22 +131,70 @@ public class WorkflowsController : ControllerBase
         return NoContent();
     }
 
-    // Tasks
+    // ========== Tasks ==========
+
+    /// <summary>获取待办审批任务列表（admin 看到全部，其他人看到自己的）</summary>
     [HttpGet("tasks/pending")]
     public async Task<IActionResult> GetPendingTasks()
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         var isAdmin = User.IsInRole("admin");
-
         Log.Information("[API] GetPendingTasks: userId={UserId}, isAdmin={IsAdmin}", userId, isAdmin);
 
-        // Admin sees all pending tasks, others see only their own
         var tasks = isAdmin
             ? await _taskService.GetAllPendingTasksAsync()
             : await _taskService.GetPendingTasksAsync(userId);
 
         Log.Information("[API] Found {TaskCount} pending tasks", tasks.Count);
+        var result = await EnrichTaskDtos(tasks);
+        Log.Information("[API] Returning {ResultCount} tasks", result.Count);
+        return Ok(result);
+    }
 
+    /// <summary>获取已处理审批任务历史（admin 看到全部，其他人看到自己的）</summary>
+    [HttpGet("tasks/history")]
+    public async Task<IActionResult> GetHistoryTasks()
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        var isAdmin = User.IsInRole("admin");
+        Log.Information("[API] GetHistoryTasks: userId={UserId}, isAdmin={IsAdmin}", userId, isAdmin);
+
+        var tasks = isAdmin
+            ? await _taskService.GetAllCompletedTasksAsync()
+            : await _taskService.GetCompletedTasksAsync(userId);
+
+        Log.Information("[API] Found {TaskCount} completed tasks", tasks.Count);
+        var result = await EnrichTaskDtos(tasks);
+        Log.Information("[API] Returning {ResultCount} history tasks", result.Count);
+        return Ok(result);
+    }
+
+    /// <summary>审批通过当前任务（自动流转到下一节点）</summary>
+    [HttpPost("tasks/{id}/approve")]
+    public async Task<IActionResult> ApproveTask(string id, [FromBody] ApproveTaskRequest request)
+    {
+        await _taskService.ApproveTaskAsync(id, request.Comment, request.FormData);
+        return NoContent();
+    }
+
+    /// <summary>驳回当前任务（流程实例标记为已驳回）</summary>
+    [HttpPost("tasks/{id}/reject")]
+    public async Task<IActionResult> RejectTask(string id, [FromBody] RejectTaskRequest request)
+    {
+        await _taskService.RejectTaskAsync(id, request.Comment);
+        return NoContent();
+    }
+
+    /// <summary>获取流程实例的操作历史</summary>
+    [HttpGet("instances/{id}/history")]
+    public async Task<IActionResult> GetInstanceHistory(string id)
+        => Ok(await _historyRepo.GetByInstanceAsync(id));
+
+    /// <summary>
+    /// 将审批任务列表拼装为带关联信息的 DTO（任务+实例+定义+用户）
+    /// </summary>
+    private async Task<List<WorkflowTaskDto>> EnrichTaskDtos(List<WorkflowTask> tasks)
+    {
         var result = new List<WorkflowTaskDto>();
         foreach (var task in tasks)
         {
@@ -154,182 +207,28 @@ public class WorkflowsController : ControllerBase
             var definition = instance != null ? await _workflowService.GetDefinitionAsync(instance.DefinitionId) : null;
             var currentNode = definition?.Nodes.FirstOrDefault(n => n.Id == instance?.CurrentNodeId);
 
-            var instanceDetailDto = new WorkflowInstanceDetailDto
-            {
-                Id = instance?.Id,
-                Name = instance?.Name,
-                Status = instance?.Status,
-                StartedBy = instance?.StartedBy,
-                StartedByName = startedByUser?.Username ?? "Unknown",
-                StartedAt = instance?.StartedAt ?? DateTime.MinValue,
-                CompletedAt = instance?.CompletedAt,
-                CurrentNodeId = instance?.CurrentNodeId,
-                CurrentNodeName = currentNode?.Name ?? "",
-                SelectedFileIds = instance?.SelectedFileIds,
-                Definition = definition
-            };
-
             result.Add(new WorkflowTaskDto
             {
-                Id = task.Id,
-                InstanceId = task.InstanceId,
-                NodeId = task.NodeId,
-                NodeName = task.NodeName,
-                AssigneeId = task.AssigneeId,
-                AssigneeName = assigneeUser?.Username ?? task.AssigneeId,
-                Status = task.Status,
-                CreatedAt = task.CreatedAt,
-                DueDate = task.DueDate,
-                CompletedAt = task.CompletedAt,
-                Comment = task.Comment,
+                Id = task.Id, InstanceId = task.InstanceId,
+                NodeId = task.NodeId, NodeName = task.NodeName,
+                AssigneeId = task.AssigneeId, AssigneeName = assigneeUser?.Username ?? task.AssigneeId,
+                Status = task.Status, CreatedAt = task.CreatedAt,
+                DueDate = task.DueDate, CompletedAt = task.CompletedAt, Comment = task.Comment,
                 InstanceName = instance?.Name ?? "",
                 StartedBy = instance?.StartedBy ?? "",
                 StartedByName = startedByUser?.Username ?? "Unknown",
-                Instance = instanceDetailDto
+                Instance = new WorkflowInstanceDetailDto
+                {
+                    Id = instance?.Id, Name = instance?.Name, Status = instance?.Status,
+                    StartedBy = instance?.StartedBy,
+                    StartedByName = startedByUser?.Username ?? "Unknown",
+                    StartedAt = instance?.StartedAt ?? DateTime.MinValue,
+                    CompletedAt = instance?.CompletedAt,
+                    CurrentNodeId = instance?.CurrentNodeId, CurrentNodeName = currentNode?.Name ?? "",
+                    SelectedFileIds = instance?.SelectedFileIds, Definition = definition
+                }
             });
         }
-
-        Log.Information("[API] Returning {ResultCount} tasks", result.Count);
-        return Ok(result);
+        return result;
     }
-
-    [HttpGet("tasks/history")]
-    public async Task<IActionResult> GetHistoryTasks()
-    {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
-        var isAdmin = User.IsInRole("admin");
-
-        Log.Information("[API] GetHistoryTasks: userId={UserId}, isAdmin={IsAdmin}", userId, isAdmin);
-
-        var tasks = isAdmin
-            ? await _taskService.GetAllCompletedTasksAsync()
-            : await _taskService.GetCompletedTasksAsync(userId);
-
-        Log.Information("[API] Found {TaskCount} completed tasks", tasks.Count);
-
-        var result = new List<WorkflowTaskDto>();
-        foreach (var task in tasks)
-        {
-            var instance = await _workflowService.GetInstanceAsync(task.InstanceId);
-            var startedByUser = instance != null ? await _userRepo.GetByIdAsync(instance.StartedBy) : null;
-            var assigneeUser = await _userRepo.GetByIdAsync(task.AssigneeId);
-            var definition = instance != null ? await _workflowService.GetDefinitionAsync(instance.DefinitionId) : null;
-            var currentNode = definition?.Nodes.FirstOrDefault(n => n.Id == instance?.CurrentNodeId);
-
-            var instanceDetailDto = new WorkflowInstanceDetailDto
-            {
-                Id = instance?.Id,
-                Name = instance?.Name,
-                Status = instance?.Status,
-                StartedBy = instance?.StartedBy,
-                StartedByName = startedByUser?.Username ?? "Unknown",
-                StartedAt = instance?.StartedAt ?? DateTime.MinValue,
-                CompletedAt = instance?.CompletedAt,
-                CurrentNodeId = instance?.CurrentNodeId,
-                CurrentNodeName = currentNode?.Name ?? "",
-                SelectedFileIds = instance?.SelectedFileIds,
-                Definition = definition
-            };
-
-            result.Add(new WorkflowTaskDto
-            {
-                Id = task.Id,
-                InstanceId = task.InstanceId,
-                NodeId = task.NodeId,
-                NodeName = task.NodeName,
-                AssigneeId = task.AssigneeId,
-                AssigneeName = assigneeUser?.Username ?? task.AssigneeId,
-                Status = task.Status,
-                CreatedAt = task.CreatedAt,
-                DueDate = task.DueDate,
-                CompletedAt = task.CompletedAt,
-                InstanceName = instance?.Name ?? "",
-                StartedBy = instance?.StartedBy ?? "",
-                StartedByName = startedByUser?.Username ?? "Unknown",
-                Instance = instanceDetailDto
-            });
-        }
-
-        Log.Information("[API] Returning {ResultCount} history tasks", result.Count);
-        return Ok(result);
-    }
-
-    [HttpPost("tasks/{id}/approve")]
-    public async Task<IActionResult> ApproveTask(string id, [FromBody] ApproveTaskRequest request)
-    {
-        await _taskService.ApproveTaskAsync(id, request.Comment, request.FormData);
-        return NoContent();
-    }
-
-    [HttpPost("tasks/{id}/reject")]
-    public async Task<IActionResult> RejectTask(string id, [FromBody] RejectTaskRequest request)
-    {
-        await _taskService.RejectTaskAsync(id, request.Comment);
-        return NoContent();
-    }
-
-    [HttpGet("instances/{id}/history")]
-    public async Task<IActionResult> GetInstanceHistory(string id)
-    {
-        var history = await _historyRepo.GetByInstanceAsync(id);
-        return Ok(history);
-    }
-}
-
-public class StartInstanceRequest
-{
-    public string DefinitionId { get; set; } = string.Empty;
-    public string EntityType { get; set; } = string.Empty;
-    public string EntityId { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public List<string>? SelectedFileIds { get; set; }
-    public Dictionary<string, object>? FormData { get; set; }
-}
-
-public class ApproveTaskRequest
-{
-    public string Comment { get; set; } = string.Empty;
-    public Dictionary<string, object>? FormData { get; set; }
-}
-
-public class RejectTaskRequest
-{
-    public string Comment { get; set; } = string.Empty;
-}
-
-public class WorkflowInstanceDetailDto
-{
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public string Status { get; set; }
-    public string StartedBy { get; set; }
-    public string StartedByName { get; set; }
-    public DateTime StartedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
-    public string CurrentNodeId { get; set; }
-    public string CurrentNodeName { get; set; }
-    public List<string> SelectedFileIds { get; set; }
-    public WorkflowDefinition Definition { get; set; }
-    // 关联的业务实体
-    public string EntityType { get; set; }
-    public string EntityId { get; set; }
-}
-
-public class WorkflowTaskDto
-{
-    public string Id { get; set; }
-    public string InstanceId { get; set; }
-    public string NodeId { get; set; }
-    public string NodeName { get; set; }
-    public string AssigneeId { get; set; }
-    public string AssigneeName { get; set; }
-    public string Status { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? DueDate { get; set; }
-    public DateTime? CompletedAt { get; set; }
-    public string Comment { get; set; }
-    public string InstanceName { get; set; }
-    public string StartedBy { get; set; }
-    public string StartedByName { get; set; }
-    public WorkflowInstanceDetailDto Instance { get; set; }
 }

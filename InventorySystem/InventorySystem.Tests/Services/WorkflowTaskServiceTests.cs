@@ -15,6 +15,8 @@ public class WorkflowTaskServiceTests
     private readonly Mock<IWorkflowInstanceRepository> _instanceRepoMock;
     private readonly Mock<IWorkflowDefinitionRepository> _definitionRepoMock;
     private readonly Mock<IWorkflowHistoryRepository> _historyRepoMock;
+    private readonly Mock<ISelectionService> _selectionServiceMock;
+    private readonly Mock<ISelectionPlanRepository> _selectionPlanRepoMock;
     private readonly WorkflowTaskService _service;
 
     public WorkflowTaskServiceTests()
@@ -23,12 +25,16 @@ public class WorkflowTaskServiceTests
         _instanceRepoMock = new Mock<IWorkflowInstanceRepository>();
         _definitionRepoMock = new Mock<IWorkflowDefinitionRepository>();
         _historyRepoMock = new Mock<IWorkflowHistoryRepository>();
+        _selectionServiceMock = new Mock<ISelectionService>();
+        _selectionPlanRepoMock = new Mock<ISelectionPlanRepository>();
 
         _service = new WorkflowTaskService(
             _taskRepoMock.Object,
             _instanceRepoMock.Object,
             _definitionRepoMock.Object,
-            _historyRepoMock.Object);
+            _historyRepoMock.Object,
+            _selectionServiceMock.Object,
+            _selectionPlanRepoMock.Object);
     }
 
     [Fact]

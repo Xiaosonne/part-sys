@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using InventorySystem.Core.DTOs;
 using InventorySystem.Core.Interfaces;
 using InventorySystem.Core.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -88,6 +89,3 @@ public class AuthController : ControllerBase
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
-
-public record LoginRequest(string Username, string Password);
-public record RegisterRequest(string Username, string Password, string DisplayName, string? Email, string? Role);

@@ -20,51 +20,36 @@ public class StockController : ControllerBase
     private readonly IPurchaseTaskRepository _purchaseTaskRepo;
 
     public StockController(
-        IStockService stockService,
-        IStockTransactionRepository txRepo,
-        IPartRepository partRepo,
-        IUserRepository userRepo,
+        IStockService stockService, IStockTransactionRepository txRepo,
+        IPartRepository partRepo, IUserRepository userRepo,
         IProjectNodeRepository projectNodeRepo,
         ISelectionPlanRepository selectionPlanRepo,
         IPurchaseTaskRepository purchaseTaskRepo)
     {
-        _stockService = stockService;
-        _txRepo = txRepo;
-        _partRepo = partRepo;
-        _userRepo = userRepo;
-        _projectNodeRepo = projectNodeRepo;
-        _selectionPlanRepo = selectionPlanRepo;
-        _purchaseTaskRepo = purchaseTaskRepo;
+        _stockService = stockService; _txRepo = txRepo; _partRepo = partRepo;
+        _userRepo = userRepo; _projectNodeRepo = projectNodeRepo;
+        _selectionPlanRepo = selectionPlanRepo; _purchaseTaskRepo = purchaseTaskRepo;
     }
 
-    /// <summary>库存总览 - 按配件聚合</summary>
     [HttpGet("overview")]
     public async Task<IActionResult> GetOverview()
     {
         var parts = await _partRepo.GetAllAsync();
         var pendingTasks = await _purchaseTaskRepo.GetByStatusAsync(PurchaseTaskStatus.Pending);
-
         var overview = parts.Select(p =>
         {
             var pending = pendingTasks.Where(t => t.PartId == p.Id).Sum(t => t.RequiredQty);
             return new StockOverviewDto
             {
-                PartId = p.Id,
-                PartName = p.Name,
-                PartModel = p.Model,
-                Category = p.Category,
-                TotalQty = p.TotalQty,
-                LockedQty = p.LockedQty,
-                AvailableQty = p.TotalQty - p.LockedQty,
-                PendingPurchaseQty = pending,
-                UpdatedAt = p.UpdatedAt
+                PartId = p.Id, PartName = p.Name, PartModel = p.Model,
+                Category = p.Category, TotalQty = p.TotalQty,
+                LockedQty = p.LockedQty, AvailableQty = p.AvailableQty,
+                PendingPurchaseQty = pending, UpdatedAt = p.UpdatedAt
             };
         }).ToList();
-
         return Ok(overview);
     }
 
-    /// <summary>库存流水查询</summary>
     [HttpGet("transactions")]
     public async Task<IActionResult> GetTransactions([FromQuery] TransactionQueryDto query)
     {
@@ -73,7 +58,6 @@ public class StockController : ControllerBase
         return Ok(new { items = dtos, totalCount = result.TotalCount });
     }
 
-    /// <summary>获取单个配件的完整流水</summary>
     [HttpGet("transactions/{partId}")]
     public async Task<IActionResult> GetTransactionsByPartId(string partId)
     {
@@ -82,54 +66,38 @@ public class StockController : ControllerBase
         return Ok(dtos);
     }
 
-    /// <summary>锁定状态汇总</summary>
     [HttpGet("locks")]
     public async Task<IActionResult> GetLockSummary()
     {
         var parts = await _partRepo.GetAllAsync();
         var result = new List<StockLockSummaryDto>();
-
         foreach (var part in parts.Where(p => p.LockedQty > 0))
         {
             var locks = await _txRepo.GetLocksByPartIdAsync(part.Id);
             var enriched = await EnrichLockDetails(locks);
-
             result.Add(new StockLockSummaryDto
             {
-                PartId = part.Id,
-                PartName = part.Name,
-                PartModel = part.Model,
-                Category = part.Category,
-                TotalLocked = part.LockedQty,
-                Locks = enriched
+                PartId = part.Id, PartName = part.Name, PartModel = part.Model,
+                Category = part.Category, TotalLocked = part.LockedQty, Locks = enriched
             });
         }
-
         return Ok(result);
     }
 
-    /// <summary>单个配件的锁定明细</summary>
     [HttpGet("locks/{partId}")]
     public async Task<IActionResult> GetLocksByPartId(string partId)
     {
         var part = await _partRepo.GetByIdAsync(partId);
         if (part == null) return NotFound();
-
         var locks = await _txRepo.GetLocksByPartIdAsync(partId);
         var enriched = await EnrichLockDetails(locks);
-
         return Ok(new StockLockSummaryDto
         {
-            PartId = part.Id,
-            PartName = part.Name,
-            PartModel = part.Model,
-            Category = part.Category,
-            TotalLocked = part.LockedQty,
-            Locks = enriched
+            PartId = part.Id, PartName = part.Name, PartModel = part.Model,
+            Category = part.Category, TotalLocked = part.LockedQty, Locks = enriched
         });
     }
 
-    /// <summary>入库</summary>
     [HttpPost("inbound")]
     [Authorize(Roles = "admin,warehouse")]
     public async Task<IActionResult> Inbound([FromBody] InboundRequestDto req)
@@ -139,27 +107,21 @@ public class StockController : ControllerBase
         return Ok(new { message = "入库成功" });
     }
 
-    /// <summary>出库（必须关联项目）</summary>
     [HttpPost("outbound")]
     [Authorize(Roles = "admin,warehouse")]
     public async Task<IActionResult> Outbound([FromBody] OutboundRequestDto req)
     {
         if (string.IsNullOrEmpty(req.ProjectId))
             return BadRequest(new { message = "出库必须关联项目" });
-
         var operatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         try
         {
             await _stockService.OutboundAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, req.RecipientId, req.RecipientName, req.Note);
             return Ok(new { message = "出库成功" });
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>锁定</summary>
     [HttpPost("lock")]
     [Authorize(Roles = "admin,warehouse")]
     public async Task<IActionResult> Lock([FromBody] LockRequestDto req)
@@ -167,16 +129,12 @@ public class StockController : ControllerBase
         var operatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         try
         {
-            await _stockService.LockAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, req.SelectionPlanId, req.SelectionItemId, req.Note);
+            await _stockService.LockAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, req.SelectionPlanId, req.SelectionItemId, req.Note, req.SourceType);
             return Ok(new { message = "锁定成功" });
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>解锁</summary>
     [HttpPost("unlock")]
     [Authorize(Roles = "admin,warehouse")]
     public async Task<IActionResult> Unlock([FromBody] UnlockRequestDto req)
@@ -184,16 +142,13 @@ public class StockController : ControllerBase
         var operatorId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
         try
         {
-            await _stockService.UnlockAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, req.Note);
+            await _stockService.UnlockAsync(req.PartId, req.Quantity, operatorId, req.ProjectId,
+                req.SelectionPlanId, req.SelectionItemId, req.Note, req.SourceType);
             return Ok(new { message = "解锁成功" });
         }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>归还</summary>
     [HttpPost("return")]
     public async Task<IActionResult> Return([FromBody] UnlockRequestDto req)
     {
@@ -201,28 +156,6 @@ public class StockController : ControllerBase
         await _stockService.ReturnAsync(req.PartId, req.Quantity, operatorId, req.ProjectId, req.Note);
         return Ok(new { message = "归还成功" });
     }
-
-    /// <summary>修正所有配件的可用数量（重新计算为 TotalQty - LockedQty）</summary>
-    [HttpPost("fix-available-qty")]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> FixAvailableQty()
-    {
-        var parts = await _partRepo.GetAllAsync();
-        var fixedCount = 0;
-        foreach (var part in parts)
-        {
-            var correctAvail = part.TotalQty - part.LockedQty;
-            if (part.AvailableQty != correctAvail)
-            {
-                part.AvailableQty = correctAvail;
-                await _partRepo.UpdateAsync(part.Id, part);
-                fixedCount++;
-            }
-        }
-        return Ok(new { message = $"修正了 {fixedCount} 个配件的可用数量" });
-    }
-
-    // ========== Private Helper Methods ==========
 
     private async Task<List<StockTransactionDto>> EnrichTransactionDtos(List<StockTransaction> transactions)
     {
@@ -241,30 +174,18 @@ public class StockController : ControllerBase
         {
             result.Add(new StockTransactionDto
             {
-                Id = tx.Id,
-                PartId = tx.PartId,
+                Id = tx.Id, PartId = tx.PartId,
                 PartName = parts.GetValueOrDefault(tx.PartId)?.Name ?? "-",
                 PartModel = parts.GetValueOrDefault(tx.PartId)?.Model ?? "-",
-                Type = tx.Type,
-                SourceType = tx.SourceType,
-                Quantity = tx.Quantity,
-                OperatorId = tx.OperatorId,
-                OperatorName = users.GetValueOrDefault(tx.OperatorId)?.DisplayName ?? "-",
-                ProjectId = tx.ProjectId,
-                ProjectName = projects.GetValueOrDefault(tx.ProjectId ?? "")?.Name,
-                SelectionPlanId = tx.SelectionPlanId,
-                SelectionPlanName = plans.GetValueOrDefault(tx.SelectionPlanId ?? "")?.Name,
-                SelectionItemId = tx.SelectionItemId,
-                RecipientId = tx.RecipientId,
-                RecipientName = tx.RecipientName,
-                Note = tx.Note,
-                Supplier = tx.Supplier,
-                PurchaseOrderNo = tx.PurchaseOrderNo,
-                Usage = tx.Usage,
+                Type = tx.Type, SourceType = tx.SourceType, Quantity = tx.Quantity,
+                OperatorId = tx.OperatorId, OperatorName = users.GetValueOrDefault(tx.OperatorId)?.DisplayName ?? "-",
+                ProjectId = tx.ProjectId, ProjectName = projects.GetValueOrDefault(tx.ProjectId ?? "")?.Name,
+                SelectionPlanId = tx.SelectionPlanId, SelectionPlanName = plans.GetValueOrDefault(tx.SelectionPlanId ?? "")?.Name,
+                SelectionItemId = tx.SelectionItemId, RecipientId = tx.RecipientId, RecipientName = tx.RecipientName,
+                Note = tx.Note, Supplier = tx.Supplier, PurchaseOrderNo = tx.PurchaseOrderNo, Usage = tx.Usage,
                 CreatedAt = tx.CreatedAt
             });
         }
-
         return result;
     }
 
@@ -283,19 +204,15 @@ public class StockController : ControllerBase
         {
             result.Add(new LockDetail
             {
-                TransactionId = tx.Id,
-                ProjectId = tx.ProjectId ?? string.Empty,
+                TransactionId = tx.Id, ProjectId = tx.ProjectId ?? string.Empty,
                 ProjectName = projects.GetValueOrDefault(tx.ProjectId ?? "")?.Name ?? "-",
                 SelectionPlanId = tx.SelectionPlanId ?? string.Empty,
                 SelectionPlanName = plans.GetValueOrDefault(tx.SelectionPlanId ?? "")?.Name ?? "-",
-                SelectionItemId = tx.SelectionItemId ?? string.Empty,
-                LockedQty = tx.Quantity,
-                OperatorId = tx.OperatorId,
-                OperatorName = users.GetValueOrDefault(tx.OperatorId)?.DisplayName ?? "-",
+                SelectionItemId = tx.SelectionItemId ?? string.Empty, LockedQty = tx.Quantity,
+                OperatorId = tx.OperatorId, OperatorName = users.GetValueOrDefault(tx.OperatorId)?.DisplayName ?? "-",
                 LockedAt = tx.CreatedAt
             });
         }
-
         return result;
     }
 }
