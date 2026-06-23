@@ -1,5 +1,6 @@
 using InventorySystem.Core.Interfaces;
 using InventorySystem.Core.Models;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace InventorySystem.Infrastructure.Repositories;
@@ -7,6 +8,22 @@ namespace InventorySystem.Infrastructure.Repositories;
 public class PartRepository : MongoRepository<Part>, IPartRepository
 {
     public PartRepository(IMongoDatabase database) : base(database, "parts") { }
+
+    public override async Task UpdateAsync(string id, Part entity)
+    {
+        var filter = Builders<Part>.Filter.Eq("_id", MongoDB.Bson.ObjectId.Parse(id))
+            & Builders<Part>.Filter.Eq(p => p.Version, entity.Version);
+
+        entity.Version++;
+        var result = await _collection.ReplaceOneAsync(filter, entity);
+
+        if (result.ModifiedCount == 0)
+        {
+            var current = await GetByIdAsync(id);
+            if (current == null) throw new InvalidOperationException("配件不存在");
+            throw new InvalidOperationException($"配件 '{current.Name}' 已被其他操作修改，请刷新后重试");
+        }
+    }
 
     public async Task<List<Part>> FilterBySpecsAsync(string? category, List<(string key, string op, string value)> criteria)
     {
@@ -18,7 +35,6 @@ public class PartRepository : MongoRepository<Part>, IPartRepository
 
         var parts = await _collection.Find(filters.Count > 0 ? builder.And(filters) : builder.Empty).ToListAsync();
 
-        // Apply spec filters in memory
         if (criteria.Count == 0) return parts;
 
         return parts.Where(p => criteria.All(c =>
@@ -36,14 +52,30 @@ public class PartRepository : MongoRepository<Part>, IPartRepository
         })).ToList();
     }
 
-    public async Task UpdateQuantitiesAsync(string id, int availableDelta, int lockedDelta, int totalDelta)
+    public async Task<bool> UpdateQuantitiesAsync(string id, int lockedDelta, int totalDelta, int? minAvailableQty = null, int? minLockedQty = null)
     {
-        var filter = Builders<Part>.Filter.Eq("_id", MongoDB.Bson.ObjectId.Parse(id));
+        var builder = Builders<Part>.Filter;
+        var filter = builder.Eq("_id", MongoDB.Bson.ObjectId.Parse(id));
+
+        if (minAvailableQty.HasValue)
+        {
+            filter &= new BsonDocumentFilterDefinition<Part>(
+                new BsonDocument("$expr", new BsonDocument("$gte", new BsonArray {
+                    new BsonDocument("$subtract", new BsonArray { "$TotalQty", "$LockedQty" }),
+                    minAvailableQty.Value
+                }))
+            );
+        }
+        if (minLockedQty.HasValue)
+            filter &= builder.Gte(p => p.LockedQty, minLockedQty.Value);
+
         var update = Builders<Part>.Update
-            .Inc(p => p.AvailableQty, availableDelta)
             .Inc(p => p.LockedQty, lockedDelta)
             .Inc(p => p.TotalQty, totalDelta)
+            .Inc(p => p.Version, 1)
             .Set(p => p.UpdatedAt, DateTime.UtcNow);
-        await _collection.UpdateOneAsync(filter, update);
+
+        var result = await _collection.UpdateOneAsync(filter, update);
+        return result.ModifiedCount > 0;
     }
 }

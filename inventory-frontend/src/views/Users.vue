@@ -41,6 +41,9 @@
         <el-form-item label="用户名" v-if="!editingId">
           <el-input v-model="form.username" placeholder="登录用户名" />
         </el-form-item>
+        <el-form-item label="密码" v-if="!editingId">
+          <el-input v-model="form.password" type="password" placeholder="默认 123456" />
+        </el-form-item>
         <el-form-item label="显示名">
           <el-input v-model="form.displayName" placeholder="显示名称" />
         </el-form-item>
@@ -89,7 +92,7 @@ const showDialog = ref(false)
 const showResetDialog = ref(false)
 const editingId = ref(null)
 const resetingUserId = ref(null)
-const form = ref({ username: '', displayName: '', email: '', role: 'user', isActive: true })
+const form = ref({ username: '', password: '', displayName: '', email: '', role: 'user', isActive: true })
 const resetForm = ref({ newPassword: '' })
 
 onMounted(async () => {
@@ -107,7 +110,7 @@ const loadUsers = async () => {
 
 const openAddDialog = () => {
   editingId.value = null
-  form.value = { username: '', displayName: '', email: '', role: 'user', isActive: true }
+  form.value = { username: '', password: '', displayName: '', email: '', role: 'user', isActive: true }
   showDialog.value = true
 }
 
@@ -128,7 +131,7 @@ const saveUser = async () => {
     }
     showDialog.value = false
     editingId.value = null
-    form.value = { username: '', displayName: '', email: '', role: 'user', isActive: true }
+    form.value = { username: '', password: '', displayName: '', email: '', role: 'user', isActive: true }
     await loadUsers()
   } catch (error) {
     ElMessage.error('保存失败')

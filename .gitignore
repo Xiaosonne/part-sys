@@ -133,6 +133,9 @@ inventory-frontend/tests/*txt
 截图/
 docs/
 .claude
+.mcp/
+.mcp.json
+CLAUDE.md
 inventory-frontend/.gstack/
 InventorySystem/.gstack/
 inventory-frontend/dist

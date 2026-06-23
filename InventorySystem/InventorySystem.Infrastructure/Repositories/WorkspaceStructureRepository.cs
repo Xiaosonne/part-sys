@@ -6,7 +6,7 @@ namespace InventorySystem.Infrastructure.Repositories;
 
 public class WorkspaceStructureRepository : MongoRepository<WorkspaceStructure>, IWorkspaceStructureRepository
 {
-    public WorkspaceStructureRepository(IMongoDatabase database) : base(database, "WorkspaceStructure")
+    public WorkspaceStructureRepository(IMongoDatabase database) : base(database, "workspace_structure")
     {
     }
 
@@ -16,7 +16,7 @@ public class WorkspaceStructureRepository : MongoRepository<WorkspaceStructure>,
         return await _collection.Find(filter).FirstOrDefaultAsync();
     }
 
-    public async Task UpdateAsync(string projectId, WorkspaceStructure structure)
+    public new async Task UpdateAsync(string projectId, WorkspaceStructure structure)
     {
         var filter = Builders<WorkspaceStructure>.Filter.Eq(x => x.ProjectId, projectId);
         var existing = await _collection.Find(filter).FirstOrDefaultAsync();

@@ -31,7 +31,7 @@ public abstract class MongoRepository<T> : IRepository<T>
     public async Task CreateAsync(T entity) =>
         await _collection.InsertOneAsync(entity);
 
-    public async Task UpdateAsync(string id, T entity)
+    public virtual async Task UpdateAsync(string id, T entity)
     {
         if (string.IsNullOrEmpty(id) || !MongoDB.Bson.ObjectId.TryParse(id, out var objectId))
             return;
