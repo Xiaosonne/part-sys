@@ -70,7 +70,7 @@
 						<template #default="{ row }">
 							<div class="type-tags">
 								<el-tag :type="typeTagType(row.type)" size="small" class="type-tag">{{ typeLabel(row.type) }}</el-tag>
-								<el-tag size="small" :class="'source-tag ' + sourceTypeClass(row.sourceType)">{{ row.sourceTypeName }}</el-tag>
+								<!-- <el-tag size="small" :class="'source-tag ' + sourceTypeClass(row.sourceType)">{{ row.sourceTypeName }}</el-tag> -->
 							</div>
 						</template>
 					</el-table-column>

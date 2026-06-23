@@ -83,35 +83,100 @@
 			</el-card>
 		</div>
 
-		<el-dialog v-model="state.dialog.visible" :title="state.dialog.editing ? '编辑配件' : '新增配件'" width="620px">
-			<el-form :model="state.dialog.form" label-width="90px">
-				<el-form-item label="名称" required>
-					<el-input v-model="state.dialog.form.name" placeholder="配件名称" clearable />
-				</el-form-item>
-				<el-form-item label="型号">
-					<el-input v-model="state.dialog.form.model" placeholder="型号" clearable />
-				</el-form-item>
-				<el-form-item label="品牌">
-					<el-input v-model="state.dialog.form.brand" placeholder="品牌" clearable />
-				</el-form-item>
-				<el-form-item label="厂商">
-					<el-input v-model="state.dialog.form.manufacturer" placeholder="厂商" clearable />
-				</el-form-item>
-				<el-form-item label="描述">
-					<el-input v-model="state.dialog.form.description" type="textarea" rows="2" />
-				</el-form-item>
-				<el-form-item label="分类">
-					<el-input :model-value="state.dialog.form.category" disabled />
-				</el-form-item>
-				<el-form-item label="标签">
-					<el-select v-model="state.dialog.tags" multiple filterable allow-create default-first-option placeholder="添加标签">
-						<el-option v-for="tag in allTags" :key="tag" :label="tag" :value="tag" />
-					</el-select>
-				</el-form-item>
-				<el-form-item label="总数量">
-					<el-input-number v-model="state.dialog.form.totalQty" :min="0" controls-position="right" />
-				</el-form-item>
-			</el-form>
+		<el-dialog v-model="state.dialog.visible" :title="state.dialog.editing ? '编辑配件' : '新增配件'" width="800px">
+			<el-tabs>
+				<el-tab-pane label="基本信息">
+					<el-form :model="state.dialog.form" label-width="100px">
+						<el-form-item label="名称" required>
+							<el-input v-model="state.dialog.form.name" placeholder="配件名称" clearable />
+						</el-form-item>
+						<el-form-item label="型号">
+							<el-input v-model="state.dialog.form.model" placeholder="型号" clearable />
+						</el-form-item>
+						<el-form-item label="描述">
+							<el-input v-model="state.dialog.form.description" type="textarea" rows="2" />
+						</el-form-item>
+						<el-form-item label="厂商">
+							<el-input v-model="state.dialog.form.manufacturer" placeholder="厂商" clearable />
+						</el-form-item>
+						<el-form-item label="品牌">
+							<el-input v-model="state.dialog.form.brand" placeholder="品牌" clearable />
+						</el-form-item>
+						<el-form-item label="分类">
+							<el-input :model-value="state.dialog.form.category" disabled />
+						</el-form-item>
+						<el-form-item label="模板">
+							<el-select v-model="state.dialog.selectedTemplateId" @change="onTemplateChange" clearable placeholder="选择模板">
+								<el-option v-for="tpl in templates" :key="tpl.id" :label="tpl.category" :value="tpl.id" />
+							</el-select>
+						</el-form-item>
+
+						<template v-if="state.dialog.selectedTemplate">
+							<el-divider content-position="left">规格参数</el-divider>
+							<el-form-item v-for="param in state.dialog.selectedTemplate.paramDefs" :key="param.key" :label="param.label">
+								<el-input v-if="param.dataType === 'string'" v-model="state.dialog.specValues[param.key]" :placeholder="param.unit" />
+								<el-input-number v-else-if="param.dataType === 'number'" v-model="state.dialog.specValues[param.key]" :placeholder="param.unit" />
+								<el-switch v-else-if="param.dataType === 'boolean'" v-model="state.dialog.specValues[param.key]" />
+								<el-select v-else-if="param.dataType === 'select'" v-model="state.dialog.specValues[param.key]" clearable :placeholder="param.label">
+									<el-option v-for="opt in param.options" :key="opt" :label="opt" :value="opt" />
+								</el-select>
+							</el-form-item>
+						</template>
+
+						<el-divider content-position="left">标签</el-divider>
+						<el-form-item label="标签">
+							<el-select v-model="state.dialog.tags" multiple filterable allow-create default-first-option placeholder="添加标签">
+								<el-option v-for="tag in allTags" :key="tag" :label="tag" :value="tag" />
+							</el-select>
+						</el-form-item>
+
+						<el-divider content-position="left">库存</el-divider>
+						<el-form-item label="总数量">
+							<el-input-number v-model="state.dialog.form.totalQty" :min="0" controls-position="right" />
+						</el-form-item>
+					</el-form>
+				</el-tab-pane>
+
+				<el-tab-pane label="文件管理">
+					<div class="file-management">
+						<div class="file-upload-header">
+							<el-button type="primary" :loading="state.dialog.uploading" @click="triggerFileUpload">
+								<el-icon><ele-Upload /></el-icon>
+								上传文件
+							</el-button>
+							<input
+								ref="fileInputRef"
+								type="file"
+								style="display: none"
+								@change="handleFileSelected"
+							/>
+						</div>
+
+						<el-table :data="state.dialog.partFiles" stripe style="width: 100%; margin-top: 12px" v-loading="state.dialog.filesLoading">
+							<el-table-column prop="fileName" label="文件名" min-width="200" />
+							<el-table-column label="大小" width="100">
+								<template #default="{ row }">
+									{{ formatFileSize(row.fileSize) }}
+								</template>
+							</el-table-column>
+							<el-table-column prop="uploadedBy" label="上传人" width="100" />
+							<el-table-column label="上传时间" width="180">
+								<template #default="{ row }">
+									{{ row.uploadedAt ? new Date(row.uploadedAt).toLocaleString() : '-' }}
+								</template>
+							</el-table-column>
+							<el-table-column label="操作" width="120" fixed="right">
+								<template #default="{ row }">
+									<el-button size="small" type="primary" link @click="handleFileDownload(row)">下载</el-button>
+									<el-button size="small" type="danger" link @click="handleFileDelete(row)">删除</el-button>
+								</template>
+							</el-table-column>
+						</el-table>
+
+						<el-empty v-if="!state.dialog.filesLoading && state.dialog.partFiles.length === 0" description="暂无文件" />
+					</div>
+				</el-tab-pane>
+			</el-tabs>
 			<template #footer>
 				<el-button @click="state.dialog.visible = false">取消</el-button>
 				<el-button type="primary" :loading="state.dialog.saving" @click="onSave">保存</el-button>
@@ -123,10 +188,22 @@
 import { computed, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AccessoryCategoryTree from '/@/views/accessoryManagement/components/AccessoryCategoryTree.vue';
-import type { AccessoryCategoryTreeItem, AccessoryItem } from '/@/api/accessory';
-import { createAccessory, deleteAccessory, searchAccessories, updateAccessory } from '/@/api/accessory';
+import type { AccessoryCategoryTreeItem, AccessoryItem, AccessorySpecTemplate, AccessoryFile } from '/@/api/accessory';
+import { 
+	createAccessory, 
+	deleteAccessory, 
+	searchAccessories, 
+	updateAccessory,
+	getAccessorySpecTemplates,
+	getAccessorySpecTemplateById,
+	uploadFile,
+	getPartFiles,
+	deleteFile
+} from '/@/api/accessory';
 
 const selectedCategory = ref<AccessoryCategoryTreeItem | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const templates = ref<AccessorySpecTemplate[]>([]);
 
 const state = reactive({
 	search: {
@@ -146,6 +223,12 @@ const state = reactive({
 		saving: false,
 		editing: null as AccessoryItem | null,
 		tags: [] as string[],
+		selectedTemplateId: null as string | null,
+		selectedTemplate: null as AccessorySpecTemplate | null,
+		specValues: {} as Record<string, any>,
+		partFiles: [] as AccessoryFile[],
+		filesLoading: false,
+		uploading: false,
 		form: {
 			name: '',
 			model: '',
@@ -206,6 +289,16 @@ const loadAccessories = async () => {
 	}
 };
 
+// 加载模板列表
+const loadTemplates = async () => {
+	try {
+		const res = (await getAccessorySpecTemplates()) as any;
+		templates.value = Array.isArray(res) ? res : [];
+	} catch (error) {
+		console.error('加载模板失败', error);
+	}
+};
+
 // 重置搜索条件并重新加载
 const onReset = () => {
 	state.search.keyword = '';
@@ -239,6 +332,10 @@ const resetDialogForm = () => {
 	};
 	state.dialog.tags = [];
 	state.dialog.editing = null;
+	state.dialog.selectedTemplateId = null;
+	state.dialog.selectedTemplate = null;
+	state.dialog.specValues = {};
+	state.dialog.partFiles = [];
 };
 
 // 打开新增弹窗
@@ -247,8 +344,35 @@ const onOpenAdd = () => {
 	state.dialog.visible = true;
 };
 
+// 模板变化处理
+const onTemplateChange = async (templateId: string | null) => {
+	if (!templateId) {
+		state.dialog.selectedTemplate = null;
+		state.dialog.specValues = {};
+		return;
+	}
+	try {
+		const res = (await getAccessorySpecTemplateById(templateId)) as any;
+		state.dialog.selectedTemplate = res;
+		// 初始化规格值
+		if (res?.paramDefs) {
+			res.paramDefs.forEach((param: any) => {
+				if (param.dataType === 'boolean') {
+					state.dialog.specValues[param.key] = false;
+				} else if (param.dataType === 'number') {
+					state.dialog.specValues[param.key] = null;
+				} else {
+					state.dialog.specValues[param.key] = '';
+				}
+			});
+		}
+	} catch (error) {
+		ElMessage.error('加载模板失败');
+	}
+};
+
 // 打开编辑弹窗
-const onOpenEdit = (row: AccessoryItem) => {
+const onOpenEdit = async (row: AccessoryItem) => {
 	state.dialog.editing = row;
 	state.dialog.form = {
 		name: row.name || '',
@@ -260,7 +384,105 @@ const onOpenEdit = (row: AccessoryItem) => {
 		totalQty: row.totalQty ?? 0,
 	};
 	state.dialog.tags = Array.isArray(row.tags) ? [...row.tags] : [];
+	
+	// 处理规格相关
+	if (row.specTemplateId) {
+		state.dialog.selectedTemplateId = row.specTemplateId;
+		await onTemplateChange(row.specTemplateId);
+		// 填充规格值
+		if (row.specs) {
+			row.specs.forEach(spec => {
+				if (state.dialog.specValues.hasOwnProperty(spec.key)) {
+					state.dialog.specValues[spec.key] = spec.value;
+				}
+			});
+		}
+	} else {
+		state.dialog.selectedTemplateId = null;
+		state.dialog.selectedTemplate = null;
+		state.dialog.specValues = {};
+	}
+	
+	// 加载文件
+	await loadPartFiles(row.id);
+	
 	state.dialog.visible = true;
+};
+
+// 加载配件文件
+const loadPartFiles = async (partId: string) => {
+	state.dialog.filesLoading = true;
+	try {
+		const res = (await getPartFiles(partId)) as any;
+		state.dialog.partFiles = Array.isArray(res) ? res : [];
+	} catch (error) {
+		console.error('加载配件文件失败:', error);
+		state.dialog.partFiles = [];
+	} finally {
+		state.dialog.filesLoading = false;
+	}
+};
+
+// 触发文件上传
+const triggerFileUpload = () => {
+	if (!state.dialog.editing?.id) {
+		ElMessage.warning('请先保存配件后再上传文件');
+		return;
+	}
+	fileInputRef.value?.click();
+};
+
+// 处理文件选择
+const handleFileSelected = async (event: Event) => {
+	const target = event.target as HTMLInputElement;
+	const file = target.files?.[0];
+	if (!file) return;
+
+	state.dialog.uploading = true;
+	try {
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('bucket', 'parts');
+		formData.append('relatedId', state.dialog.editing!.id);
+		formData.append('fileType', 'PART');
+		formData.append('description', '');
+
+		await uploadFile(formData);
+		ElMessage.success('文件上传成功');
+		await loadPartFiles(state.dialog.editing!.id);
+	} catch (error: any) {
+		ElMessage.error('文件上传失败: ' + (error.message || '未知错误'));
+	} finally {
+		state.dialog.uploading = false;
+		if (fileInputRef.value) {
+			fileInputRef.value.value = '';
+		}
+	}
+};
+
+// 下载文件
+const handleFileDownload = (file: AccessoryFile) => {
+	window.open(`/api/files/${file.id}/download`, '_blank');
+};
+
+// 删除文件
+const handleFileDelete = async (file: AccessoryFile) => {
+	try {
+		await ElMessageBox.confirm(`确定删除文件“${file.fileName}”吗？`, '警告', { type: 'warning' });
+		await deleteFile(file.id);
+		ElMessage.success('文件删除成功');
+		await loadPartFiles(state.dialog.editing!.id);
+	} catch (error) {
+		// 取消操作不显示错误
+	}
+};
+
+// 格式化文件大小
+const formatFileSize = (bytes?: number) => {
+	if (!bytes) return '-';
+	if (bytes < 1024) return bytes + ' B';
+	if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+	return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
 // 保存（新增/编辑）
@@ -275,10 +497,29 @@ const onSave = async () => {
 	}
 	state.dialog.saving = true;
 	try {
+		// 组装规格
+		const specs: any[] = [];
+		if (state.dialog.selectedTemplate) {
+			state.dialog.selectedTemplate.paramDefs.forEach(param => {
+				const val = state.dialog.specValues[param.key];
+				if (val !== '' && val !== null && val !== undefined) {
+					specs.push({
+						key: param.key,
+						label: param.label,
+						value: String(val),
+						unit: param.unit || ''
+					});
+				}
+			});
+		}
+
 		const payload = {
 			...state.dialog.form,
 			tags: state.dialog.tags,
+			specTemplateId: state.dialog.selectedTemplateId,
+			specs
 		};
+
 		if (state.dialog.editing?.id) {
 			await updateAccessory(state.dialog.editing.id, payload);
 			ElMessage.success('配件更新成功');
@@ -308,6 +549,9 @@ const onDelete = async (row: AccessoryItem) => {
 		await loadAccessories();
 	} catch (e) {}
 };
+
+// 初始化
+loadTemplates();
 </script>
 <style lang="scss" scoped>
 .accessory-list-container .accessory-list-layout {
@@ -363,9 +607,10 @@ const onDelete = async (row: AccessoryItem) => {
 }
 
 .specs-cell {
-	display: inline-flex;
-	align-items: center;
-	gap: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-size: 12px;
 }
 
 .spec-item {
@@ -373,12 +618,17 @@ const onDelete = async (row: AccessoryItem) => {
 }
 
 .more-specs {
-	display: inline-flex;
-	align-items: center;
 	color: var(--el-color-primary);
-	background: var(--el-color-primary-light-9);
-	border-radius: 10px;
-	padding: 0 8px;
-	height: 20px;
+	font-size: 11px;
+}
+
+.file-management {
+	padding: 8px 0;
+}
+
+.file-upload-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 }
 </style>

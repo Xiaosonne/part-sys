@@ -70,6 +70,14 @@ export type AccessorySearchParams = {
 	maxAvailableQty?: number | null;
 };
 
+export type AccessoryFile = {
+	id: string;
+	fileName: string;
+	fileSize: number;
+	uploadedBy: string;
+	uploadedAt: string;
+};
+
 export function getAccessoryCategoryTree() {
 	return request({
 		url: '/api/part-categories/tree',
@@ -185,6 +193,30 @@ export function updateAccessory(id: string, data: Partial<AccessoryItem>) {
 export function deleteAccessory(id: string) {
 	return request({
 		url: `/api/parts/${id}`,
+		method: 'delete',
+	});
+}
+
+// Files API
+export function uploadFile(formData: FormData) {
+	return request({
+		url: '/api/files/upload',
+		method: 'post',
+		data: formData,
+		headers: { 'Content-Type': 'multipart/form-data' },
+	});
+}
+
+export function getPartFiles(partId: string) {
+	return request({
+		url: `/api/files/part/${partId}`,
+		method: 'get',
+	});
+}
+
+export function deleteFile(fileId: string) {
+	return request({
+		url: `/api/files/${fileId}`,
 		method: 'delete',
 	});
 }
