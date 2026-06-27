@@ -7,6 +7,7 @@ export type AccessoryCategoryTreeItem = {
 	parentId?: string | null;
 	specTemplateId?: string | null;
 	sortOrder?: number;
+	specParams?: AccessoryParamDef[] | null;
 	children?: AccessoryCategoryTreeItem[];
 };
 

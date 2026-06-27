@@ -79,6 +79,17 @@
 						</el-table>
 						<el-empty v-else description="暂无子分类" />
 					</el-card>
+
+					<!-- 父分类 -->
+					<el-card v-if="parent" shadow="hover" class="right-card">
+						<template #header>
+							<span>父分类</span>
+						</template>
+						<div class="parent-info">
+							<el-tag>{{ parent.name }}</el-tag>
+							<el-button type="primary" text @click="selectParentCategory">选择父分类</el-button>
+						</div>
+					</el-card>
 				</div>
 			</div>
 		</div>
@@ -107,6 +118,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AccessoryCategoryTree from '/@/views/accessoryManagement/components/AccessoryCategoryTree.vue';
 import type { AccessoryCategory, AccessoryCategoryTreeItem, AccessoryParamDef, AccessorySpecTemplate } from '/@/api/accessory';
@@ -118,6 +130,8 @@ import {
 	getAccessorySpecTemplates,
 	updateAccessoryCategory,
 } from '/@/api/accessory';
+
+const router = useRouter();
 
 const treeRef = ref<any>(null);
 
@@ -293,9 +307,20 @@ const deleteChild = async (row: AccessoryCategory) => {
 };
 
 const selectFromTable = async (row: AccessoryCategory) => {
-	state.selectedId = row.id;
-	await treeRef.value?.setCurrentKey?.(row.id);
-	await onCategorySelect(row as any);
+	// 跳转到配件列表页面，并传递分类ID
+	router.push({
+		path: '/accessoryManagement/accessoryList',
+		query: { categoryId: row.id }
+	});
+};
+
+const selectParentCategory = async () => {
+	if (!parent.value) return;
+	// 跳转到配件列表页面，并传递父分类ID
+	router.push({
+		path: '/accessoryManagement/accessoryList',
+		query: { categoryId: parent.value.id }
+	});
 };
 
 onMounted(async () => {
@@ -372,5 +397,11 @@ onMounted(async () => {
 
 .muted {
 	color: var(--el-text-color-secondary);
+}
+
+.parent-info {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 }
 </style>

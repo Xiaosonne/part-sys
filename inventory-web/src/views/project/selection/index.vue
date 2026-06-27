@@ -229,48 +229,99 @@
 		</el-dialog>
 
 		<!-- 配件选择弹窗 -->
-		<el-dialog v-model="state.partDialog.visible" :title="state.partDialog.currentItem ? '更换配件' : '添加配件'" width="1000px">
+		<el-dialog v-model="state.partDialog.visible" :title="state.partDialog.currentItem ? '更换配件' : '添加配件'" width="1100px">
 			<div class="part-selector">
-				<div class="search-bar mb15">
-					<el-input v-model="state.partDialog.filters.keyword" placeholder="搜索名称/型号/品牌" clearable style="width: 220px" @keyup.enter="searchParts" />
-					<el-cascader
-						v-model="state.partDialog.filters.categoryPath"
-						:options="state.categories"
-						:props="{ label: 'name', value: 'path', children: 'children', checkStrictly: true }"
-						placeholder="全部分类"
-						clearable
-						class="ml10"
-						style="width: 200px"
-						@change="searchParts"
-					/>
-					<el-button type="primary" class="ml10" @click="searchParts" :loading="state.partDialog.loading">搜索</el-button>
-					<el-button @click="resetPartFilters">重置</el-button>
+				<!-- Search Bar (integrated with spec filter) -->
+				<div class="part-search-bar mb15">
+					<el-input v-model="state.partSearch.keyword" placeholder="搜索名称/型号/品牌" clearable style="width: 160px" @keyup.enter="doSearch" />
+
+					<!-- Category Tree Selector -->
+					<el-popover placement="bottom-start" :width="280" trigger="click" v-model:visible="state.showCategoryPopover">
+						<template #reference>
+							<el-button style="width: 160px; text-align: left">
+								{{ state.partDialog.selectedCategoryName || '选择分类（全部）' }}
+								<el-icon style="float: right; margin-top: 2px">
+									<ele-ArrowDown />
+								</el-icon>
+							</el-button>
+						</template>
+						<el-scrollbar style="height: 300px">
+							<el-tree ref="categoryTreeRef" :data="state.categoryTree" :props="{ label: 'name', children: 'children' }" node-key="id" :expand-on-click-node="true" :default-expand-all="true" highlight-current @node-click="onCategoryNodeClick" />
+						</el-scrollbar>
+						<div style="margin-top: 8px; text-align: right">
+							<el-button size="small" @click="clearCategory">清除</el-button>
+							<el-button size="small" type="primary" @click="state.showCategoryPopover = false">确定</el-button>
+						</div>
+					</el-popover>
+
+					<el-input-number v-model="state.partSearch.minQty" :min="0" placeholder="最小库存" size="default" style="width: 100px" controls-position="right" />
+					<span class="range-sep">-</span>
+					<el-input-number v-model="state.partSearch.maxQty" :min="0" placeholder="最大库存" size="default" style="width: 100px" controls-position="right" />
+
+					<!-- Spec filter dropdown — only show when category has template -->
+					<el-dropdown v-if="state.partSearch.template" @command="handleAddFilter" trigger="click">
+						<el-button type="primary" plain size="default">
+							<el-icon>
+								<ele-Plus />
+							</el-icon>
+							添加规格过滤
+						</el-button>
+						<template #dropdown>
+							<el-dropdown-menu>
+								<el-dropdown-item v-for="param in state.partSearch.availableParams" :key="param.key" :command="param">
+									{{ param.label }}
+								</el-dropdown-item>
+							</el-dropdown-menu>
+						</template>
+					</el-dropdown>
+
+					<!-- Active Filter Tags -->
+					<div class="filter-tags-row" v-if="state.partSearch.activeFilters.length > 0">
+						<el-tag v-for="filter in state.partSearch.activeFilters" :key="filter.key" closable @close="removeFilter(filter.key)" class="filter-tag">
+							{{ filter.label }}: {{ formatFilterValue(filter) }}
+						</el-tag>
+					</div>
+
+					<el-button type="primary" @click="doSearch" :loading="state.partSearch.searching" size="default">搜索</el-button>
+					<el-button @click="resetPartFilters" size="default">重置</el-button>
 				</div>
 
+				<!-- Results Table -->
 				<el-table
-					:data="state.partDialog.results"
+					:data="state.partSearch.results"
 					stripe
 					max-height="400"
-					v-loading="state.partDialog.loading"
+					v-loading="state.partSearch.searching"
+					@row-click="selectPartRow"
 					highlight-current-row
-					@current-change="onPartSelect"
 					class="custom-table"
 				>
-					<el-table-column prop="name" label="配件名称" min-width="150" />
+					<el-table-column prop="name" label="配件名称" min-width="120" />
 					<el-table-column prop="model" label="型号" width="140" />
 					<el-table-column prop="brand" label="品牌" width="100" />
 					<el-table-column prop="category" label="分类" width="120" />
-					<el-table-column prop="availableQty" label="可用库存" width="100" align="center">
+					<el-table-column label="规格" min-width="150">
 						<template #default="{ row }">
-							<span :class="{ 'text-danger font-bold': row.availableQty < 5 }">{{ row.availableQty }}</span>
+							<div v-if="row.specs && row.specs.length > 0" class="specs-mini">
+								<span v-for="spec in row.specs.slice(0, 2)" :key="spec.key" class="spec-chip">{{ spec.label }}: {{ spec.value }}{{ spec.unit }}</span>
+								<span v-if="row.specs.length > 2" class="more-specs">+{{ row.specs.length - 2 }}</span>
+							</div>
+							<span v-else class="no-specs">-</span>
+						</template>
+					</el-table-column>
+					<el-table-column prop="availableQty" label="可用库存" width="90" align="center">
+						<template #default="{ row }">
+							<span :class="{ 'text-danger font-bold': row.availableQty < 5 }">{{ row.availableQty ?? 0 }}</span>
 						</template>
 					</el-table-column>
 				</el-table>
+				<el-empty v-if="state.partSearch.results.length === 0 && !state.partSearch.searching" description="请设置过滤条件搜索配件" style="margin: 20px 0" />
 
-				<div v-if="state.partDialog.selectedPart" class="selected-preview mt15">
-					<div class="preview-info">
-						已选择: <span class="font-bold text-primary">{{ state.partDialog.selectedPart.name }}</span>
-						<span class="ml10 text-muted">({{ state.partDialog.selectedPart.model }})</span>
+				<!-- Selection Form -->
+				<div v-if="state.partDialog.selectedPart" class="add-form mt15">
+					<div class="selected-info">
+						已选择: <strong>{{ state.partDialog.selectedPart.name }}</strong>
+						<span class="muted">{{ state.partDialog.selectedPart.model }} / {{ state.partDialog.selectedPart.brand }} / {{ state.partDialog.selectedPart.category }}</span>
 					</div>
 					<el-form v-if="!state.partDialog.currentItem" inline class="mt10">
 						<el-form-item label="需求数量">
@@ -278,10 +329,49 @@
 						</el-form-item>
 					</el-form>
 				</div>
+
+				<!-- Filter Editor Modal -->
+				<el-dialog v-model="state.showFilterModal" title="编辑过滤条件" width="450px">
+					<el-form v-if="state.partSearch.editingParam" label-width="90px">
+						<el-form-item label="规格参数">
+							<span>{{ state.partSearch.editingParam.label }}</span>
+						</el-form-item>
+						<el-form-item v-if="state.partSearch.editingParam.dataType === 'string'" label="值">
+							<el-input v-model="state.partSearch.filterValue.string" :placeholder="`输入${state.partSearch.editingParam.label}`" clearable style="width: 100%" />
+						</el-form-item>
+						<el-form-item v-else-if="state.partSearch.editingParam.dataType === 'number'" label="范围">
+							<div class="number-range-edit">
+								<el-input-number v-model="state.partSearch.filterValue.min" :placeholder="state.partSearch.editingParam.unit ? `最小${state.partSearch.editingParam.unit}` : '最小值'" :min="0" controls-position="right" style="width: 130px" />
+								<span class="range-sep">-</span>
+								<el-input-number v-model="state.partSearch.filterValue.max" :placeholder="state.partSearch.editingParam.unit ? `最大${state.partSearch.editingParam.unit}` : '最大值'" :min="0" controls-position="right" style="width: 130px" />
+								<span v-if="state.partSearch.editingParam.unit" class="unit-label">{{ state.partSearch.editingParam.unit }}</span>
+							</div>
+						</el-form-item>
+						<el-form-item v-else-if="state.partSearch.editingParam.dataType === 'select' && state.partSearch.editingParam.options?.length < 5" label="值">
+							<el-radio-group v-model="state.partSearch.filterValue.selected">
+								<el-radio-button v-for="opt in state.partSearch.editingParam.options" :key="opt" :value="opt">{{ opt }}</el-radio-button>
+							</el-radio-group>
+						</el-form-item>
+						<el-form-item v-else-if="state.partSearch.editingParam.dataType === 'select'" label="值">
+							<el-select v-model="state.partSearch.filterValue.selected" :placeholder="`选择${state.partSearch.editingParam.label}`" clearable style="width: 100%">
+								<el-option v-for="opt in state.partSearch.editingParam.options" :key="opt" :label="opt" :value="opt" />
+							</el-select>
+						</el-form-item>
+						<el-form-item v-else-if="state.partSearch.editingParam.dataType === 'boolean'" label="值">
+							<el-switch v-model="state.partSearch.filterValue.bool" />
+						</el-form-item>
+					</el-form>
+					<template #footer>
+						<el-button @click="state.showFilterModal = false">取消</el-button>
+						<el-button type="primary" @click="confirmFilter">确定</el-button>
+					</template>
+				</el-dialog>
 			</div>
 			<template #footer>
 				<el-button @click="state.partDialog.visible = false">取 消</el-button>
-				<el-button type="primary" @click="confirmPart" :disabled="!state.partDialog.selectedPart">确 定</el-button>
+				<el-button type="primary" @click="confirmPart" :disabled="!state.partDialog.selectedPart">
+					{{ state.partDialog.currentItem ? '确认更换' : '添加' }}
+				</el-button>
 			</template>
 		</el-dialog>
 
@@ -314,11 +404,17 @@ import { reactive, ref, computed, onMounted, defineAsyncComponent } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getSelections, getSelection, createSelection, updateSelection, deleteSelection, submitSelection, cancelSelection, outboundSelection } from '/@/api/project';
 import { getAccessoryCategoryTree, searchAccessories } from '/@/api/accessory';
+import { usePartSearch } from '/@/composables/usePartSearch';
 
 // 异步引入左侧组件
 const ProjectSide = defineAsyncComponent(() => import('../components/ProjectSide.vue'));
 
 const projectSideRef = ref();
+const categoryTreeRef = ref();
+
+// 使用 usePartSearch composable
+const partSearch = usePartSearch({ searchApi: searchAccessories });
+
 const state = reactive({
 	loading: false,
 	selectedNode: null as any,
@@ -326,6 +422,8 @@ const state = reactive({
 	currentPlan: null as any,
 	selectedProjectName: '',
 	categories: [] as any[],
+	showCategoryPopover: false,
+	showFilterModal: false,
 	addPlanDialog: {
 		visible: false,
 		loading: false,
@@ -339,11 +437,8 @@ const state = reactive({
 		currentItem: null as any,
 		selectedPart: null as any,
 		requiredQty: 1,
-		filters: {
-			keyword: '',
-			categoryPath: [] as string[],
-		},
-		results: [] as any[],
+		selectedCategoryName: '',
+		selectedCategoryId: null as string | null,
 	},
 	outboundDialog: {
 		visible: false,
@@ -354,6 +449,10 @@ const state = reactive({
 			recipientName: '',
 		},
 	},
+	// 将 partSearch 挂载到 state 上方便使用
+	partSearch: partSearch,
+	// categoryTree 用于模板
+	categoryTree: computed(() => partSearch.categoryTree),
 });
 
 // 计算属性
@@ -498,45 +597,78 @@ const cancelPlan = () => {
 };
 
 // 添加/更换配件
-const showAddItem = () => {
+const showAddItem = async () => {
 	state.partDialog.currentItem = null;
 	state.partDialog.selectedPart = null;
 	state.partDialog.requiredQty = 1;
+	state.partDialog.selectedCategoryName = '';
+	state.partDialog.selectedCategoryId = null;
+	// Load categories BEFORE opening dialog, force reload
+	await partSearch.loadCategories(true);
+	resetPartFilters();
 	state.partDialog.visible = true;
-	searchParts();
+	// Initial search to populate results
+	await doSearch();
 };
 
-const selectPart = (item: any) => {
+const selectPart = async (item: any) => {
 	state.partDialog.currentItem = item;
 	state.partDialog.selectedPart = null;
+	state.partDialog.requiredQty = item.requiredQty || 1;
+	state.partDialog.selectedCategoryName = '';
+	state.partDialog.selectedCategoryId = null;
+	await partSearch.loadCategories();
+	resetPartFilters();
 	state.partDialog.visible = true;
-	searchParts();
+	await doSearch();
 };
 
-const searchParts = async () => {
-	state.partDialog.loading = true;
-	try {
-		const categoryPath = state.partDialog.filters.categoryPath;
-		const res = (await searchAccessories({
-			keyword: state.partDialog.filters.keyword,
-			categoryPath: categoryPath && categoryPath.length ? categoryPath[categoryPath.length - 1] : null,
-		})) as any;
-		state.partDialog.results = res || [];
-	} catch (err) {
-		ElMessage.error('搜索配件失败');
-	} finally {
-		state.partDialog.loading = false;
-	}
+const doSearch = async () => {
+	await partSearch.doSearch();
 };
 
 const resetPartFilters = () => {
-	state.partDialog.filters.keyword = '';
-	state.partDialog.filters.categoryPath = [];
-	searchParts();
+	partSearch.resetFilters();
+	state.partDialog.selectedCategoryName = '';
+	state.partDialog.selectedCategoryId = null;
 };
 
-const onPartSelect = (val: any) => {
-	state.partDialog.selectedPart = val;
+const selectPartRow = (part: any) => {
+	state.partDialog.selectedPart = part;
+};
+
+// Category tree selection
+const onCategoryNodeClick = (data: any) => {
+	state.partDialog.selectedCategoryId = data.id;
+	state.partDialog.selectedCategoryName = data.name;
+	partSearch.categoryPath.value = data.path || data.id;
+	partSearch.updateTemplateFromCategory(data.id);
+};
+
+const clearCategory = () => {
+	state.partDialog.selectedCategoryId = null;
+	state.partDialog.selectedCategoryName = '';
+	partSearch.categoryPath.value = null;
+	partSearch.updateTemplateFromCategory(null);
+};
+
+// Filter methods
+const handleAddFilter = (param: any) => {
+	partSearch.handleAddFilter(param);
+	state.showFilterModal = true;
+};
+
+const removeFilter = (key: string) => {
+	partSearch.removeFilter(key);
+};
+
+const confirmFilter = () => {
+	partSearch.confirmFilter();
+	state.showFilterModal = false;
+};
+
+const formatFilterValue = (filter: any) => {
+	return partSearch.formatFilterValue(filter);
 };
 
 const confirmPart = async () => {
@@ -638,6 +770,8 @@ const itemStatusText = (item: any) => {
 onMounted(async () => {
 	const treeRes = (await getAccessoryCategoryTree()) as any;
 	state.categories = treeRes || [];
+	// Load categories for part search
+	await partSearch.loadCategories();
 });
 </script>
 
@@ -834,5 +968,84 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+}
+
+/* Part search bar styles */
+.part-search-bar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 10px;
+	background: var(--el-fill-color-lighter);
+	border-radius: 6px;
+}
+
+.filter-tags-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+
+.filter-tag {
+	cursor: pointer;
+}
+
+.specs-mini {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 3px;
+}
+
+.spec-chip {
+	background: var(--el-fill-color-light);
+	padding: 1px 5px;
+	border-radius: 3px;
+	font-size: 11px;
+	color: var(--el-text-color-secondary);
+}
+
+.more-specs {
+	color: var(--el-color-primary);
+	font-size: 11px;
+}
+
+.no-specs {
+	color: var(--el-text-color-placeholder);
+}
+
+.number-range-edit {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.add-form {
+	margin-top: 15px;
+	padding: 15px;
+	background: var(--el-fill-color-lighter);
+	border-radius: 4px;
+}
+
+.selected-info {
+	margin-bottom: 10px;
+	font-size: 14px;
+}
+
+.selected-info .muted {
+	color: var(--el-text-color-secondary);
+	margin-left: 8px;
+}
+
+.range-sep {
+	color: var(--el-text-color-secondary);
+	padding: 0 4px;
+}
+
+.unit-label {
+	margin-left: 8px;
+	color: var(--el-text-color-secondary);
+	font-size: 12px;
 }
 </style>

@@ -49,6 +49,7 @@ const emit = defineEmits<{
 
 const treeRef = ref<any>(null);
 const treeData = ref<AccessoryCategoryTreeItem[]>([]);
+const treeLoaded = ref(false);
 
 // 将后端扁平分类列表按 parentId 组装为树形 children 结构
 const buildTree = (list: AccessoryCategoryTreeItem[]) => {
@@ -85,17 +86,37 @@ const buildTree = (list: AccessoryCategoryTreeItem[]) => {
 	return roots;
 };
 
-// 加载分类树数据（加载完成后默认选中第一项）
+// 在树中查找指定 ID 的节点
+const findNodeById = (nodes: AccessoryCategoryTreeItem[], id: string): AccessoryCategoryTreeItem | null => {
+	for (const node of nodes) {
+		if (node.id === id) return node;
+		if (node.children?.length) {
+			const found = findNodeById(node.children, id);
+			if (found) return found;
+		}
+	}
+	return null;
+};
+
+// 加载分类树数据（加载完成后默认选中第一项或传入的 selectedId）
 const loadTree = async () => {
+	treeLoaded.value = false;
 	try {
 		const res = (await getAccessoryCategoryTree()) as AccessoryCategoryTreeItem[];
 		const flat = Array.isArray(res) ? res : [];
 		treeData.value = buildTree(flat);
+		treeLoaded.value = true;
 		await nextTick();
+		// 如果有传入的 selectedId，优先选中它
 		if (props.selectedId) {
-			treeRef.value?.setCurrentKey?.(props.selectedId);
-			return;
+			const targetNode = findNodeById(treeData.value, props.selectedId);
+			if (targetNode) {
+				treeRef.value?.setCurrentKey?.(props.selectedId);
+				emit('select', targetNode);
+				return;
+			}
 		}
+		// 如果没有传入 selectedId 或找不到，选中第一项
 		const first = treeData.value[0];
 		if (first?.id) {
 			treeRef.value?.setCurrentKey?.(first.id);
@@ -104,13 +125,22 @@ const loadTree = async () => {
 	} catch (e) {
 		ElMessage.error('加载分类失败');
 		treeData.value = [];
+		treeLoaded.value = true;
 	}
 };
 
 const setCurrentKey = async (id: string | null | undefined) => {
+	// 等待树加载完成
+	while (!treeLoaded.value) {
+		await new Promise(resolve => setTimeout(resolve, 50));
+	}
 	await nextTick();
-	if (!id) return;
-	treeRef.value?.setCurrentKey?.(id);
+	if (!id || !treeData.value.length) return;
+	const targetNode = findNodeById(treeData.value, id);
+	if (targetNode) {
+		treeRef.value?.setCurrentKey?.(id);
+		emit('select', targetNode);
+	}
 };
 
 // 点击节点：通知父页面切换分类
@@ -125,9 +155,9 @@ defineExpose({
 
 watch(
 	() => props.selectedId,
-	(val) => {
+	async (val) => {
 		if (!val) return;
-		setCurrentKey(val);
+		await setCurrentKey(val);
 	},
 	{ immediate: true }
 );

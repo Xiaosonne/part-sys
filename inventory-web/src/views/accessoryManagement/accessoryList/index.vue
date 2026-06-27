@@ -3,39 +3,86 @@
 		<div class="accessory-list-layout layout-padding-auto">
 			<el-card class="accessory-left" shadow="hover">
 				<AccessoryCategoryTree
-					:selected-id="selectedCategory?.id || null"
+					ref="treeRef"
+					:selected-id="selectedCategoryId"
 					@select="onCategorySelect"
 				/>
 			</el-card>
 
 			<el-card class="accessory-right" shadow="hover">
-				<div class="accessory-toolbar mb15">
-					<el-input
-						v-model="state.search.keyword"
-						size="default"
-						clearable
-						placeholder="搜索配件名称、型号..."
-						style="max-width: 220px"
-						@keyup.enter="loadAccessories"
-					/>
-					<span class="ml10 range-label">库存</span>
-					<el-input-number v-model="state.search.minQty" class="ml6" size="default" :min="0" controls-position="right" />
-					<span class="ml6 mr6">-</span>
-					<el-input-number v-model="state.search.maxQty" size="default" :min="0" controls-position="right" />
-					<el-button size="default" type="primary" class="ml10" @click="loadAccessories">
-						<el-icon><ele-Search /></el-icon>
-						搜索
-					</el-button>
-					<el-button size="default" class="ml10" @click="onReset">
-						重置
-					</el-button>
-					<div class="flex-fill"></div>
-					<el-tooltip :disabled="!!selectedCategory?.path" content="请先在左侧选择分类" placement="bottom">
-						<el-button size="default" type="primary" @click="onOpenAdd" :disabled="!selectedCategory?.path">
-							<el-icon><ele-Plus /></el-icon>
-							新增配件
-						</el-button>
-					</el-tooltip>
+				<div class="search-bar mb15">
+					<div class="search-row">
+						<el-input
+							v-model="state.search.keyword"
+							size="default"
+							clearable
+							placeholder="搜索配件名称、型号..."
+							style="width: 180px"
+							@keyup.enter="loadAccessories"
+						/>
+
+						<!-- Spec Filter Tags -->
+						<div class="filter-tags" v-if="state.activeFilters.length > 0">
+							<el-tag
+								v-for="filter in state.activeFilters"
+								:key="filter.key"
+								closable
+								@close="removeFilter(filter.key)"
+								size="small"
+							>
+								{{ filter.label }}: {{ formatFilterValue(filter) }}
+							</el-tag>
+						</div>
+
+						<!-- Add Filter Dropdown (only if template has params) -->
+						<el-dropdown v-if="currentCategoryTemplate?.paramDefs?.length" @command="handleAddFilter" trigger="click">
+							<el-button type="primary" plain size="default">
+								<el-icon><ele-Plus /></el-icon>
+								添加筛选
+							</el-button>
+							<template #dropdown>
+								<el-dropdown-menu>
+									<el-dropdown-item v-for="param in availableParams" :key="param.key" :command="param">
+										{{ param.label }}
+									</el-dropdown-item>
+								</el-dropdown-menu>
+							</template>
+						</el-dropdown>
+
+						<el-divider direction="vertical" />
+
+						<!-- Stock Range -->
+						<span class="range-label">库存</span>
+						<el-input-number
+							v-model="state.search.minQty"
+							:min="0"
+							placeholder="最小"
+							size="default"
+							style="width: 90px"
+							controls-position="right"
+						/>
+						<span class="range-sep">-</span>
+						<el-input-number
+							v-model="state.search.maxQty"
+							:min="0"
+							placeholder="最大"
+							size="default"
+							style="width: 90px"
+							controls-position="right"
+						/>
+
+						<el-button type="primary" @click="loadAccessories" :loading="state.table.loading" size="default">搜索</el-button>
+						<el-button @click="onReset" size="default" v-if="hasActiveFilters">重置</el-button>
+
+						<div class="spacer"></div>
+
+						<el-tooltip :disabled="!!selectedCategory?.path" content="请先在左侧选择分类" placement="bottom">
+							<el-button size="default" type="primary" @click="onOpenAdd" :disabled="!selectedCategory?.path">
+								<el-icon><ele-Plus /></el-icon>
+								新增配件
+							</el-button>
+						</el-tooltip>
+					</div>
 				</div>
 
 				<el-table :data="pagedData" v-loading="state.table.loading" style="width: 100%" stripe table-layout="auto">
@@ -82,6 +129,26 @@
 				/>
 			</el-card>
 		</div>
+
+		<el-dialog v-model="state.filterDialog.visible" title="编辑筛选条件" width="400px">
+			<el-form :model="state.filterDialog.form" label-width="80px" v-if="state.filterDialog.editingParam">
+				<el-form-item :label="state.filterDialog.editingParam.label">
+					<el-select v-if="state.filterDialog.editingParam.dataType === 'select'" v-model="state.filterDialog.form.value" placeholder="选择值">
+						<el-option v-for="opt in state.filterDialog.editingParam.options" :key="opt" :label="opt" :value="opt" />
+					</el-select>
+					<el-select v-else-if="state.filterDialog.editingParam.dataType === 'boolean'" v-model="state.filterDialog.form.value">
+						<el-option label="是" :value="true" />
+						<el-option label="否" :value="false" />
+					</el-select>
+					<el-input-number v-else-if="state.filterDialog.editingParam.dataType === 'number'" v-model="state.filterDialog.form.value" />
+					<el-input v-else v-model="state.filterDialog.form.value" :placeholder="state.filterDialog.editingParam.unit" />
+				</el-form-item>
+			</el-form>
+			<template #footer>
+				<el-button @click="state.filterDialog.visible = false">取消</el-button>
+				<el-button type="primary" @click="confirmFilter">确定</el-button>
+			</template>
+		</el-dialog>
 
 		<el-dialog v-model="state.dialog.visible" :title="state.dialog.editing ? '编辑配件' : '新增配件'" width="800px">
 			<el-tabs>
@@ -185,10 +252,11 @@
 	</div>
 </template>
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch, onMounted, nextTick } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AccessoryCategoryTree from '/@/views/accessoryManagement/components/AccessoryCategoryTree.vue';
-import type { AccessoryCategoryTreeItem, AccessoryItem, AccessorySpecTemplate, AccessoryFile } from '/@/api/accessory';
+import type { AccessoryCategoryTreeItem, AccessoryItem, AccessorySpecTemplate, AccessoryFile, AccessoryParamDef } from '/@/api/accessory';
 import { 
 	createAccessory, 
 	deleteAccessory, 
@@ -198,12 +266,19 @@ import {
 	getAccessorySpecTemplateById,
 	uploadFile,
 	getPartFiles,
-	deleteFile
+	deleteFile,
+	getAccessoryCategories
 } from '/@/api/accessory';
 
+const route = useRoute();
+const router = useRouter();
+
+const treeRef = ref<any>(null);
+const selectedCategoryId = ref<string | null>(null); // 只保存 ID，让树组件来处理选中
 const selectedCategory = ref<AccessoryCategoryTreeItem | null>(null);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const templates = ref<AccessorySpecTemplate[]>([]);
+const allCategories = ref<AccessoryCategoryTreeItem[]>([]);
 
 const state = reactive({
 	search: {
@@ -211,6 +286,7 @@ const state = reactive({
 		minQty: null as number | null,
 		maxQty: null as number | null,
 	},
+	activeFilters: [] as any[],
 	table: {
 		loading: false,
 		data: [] as AccessoryItem[],
@@ -239,6 +315,13 @@ const state = reactive({
 			totalQty: 0,
 		},
 	},
+	filterDialog: {
+		visible: false,
+		editingParam: null as AccessoryParamDef | null,
+		form: {
+			value: null as any,
+		},
+	},
 });
 
 const allTags = computed(() => {
@@ -247,6 +330,44 @@ const allTags = computed(() => {
 	return Array.from(tags);
 });
 
+const hasActiveFilters = computed(() => {
+	return state.activeFilters.length > 0 || 
+		   state.search.minQty !== null || 
+		   state.search.maxQty !== null || 
+		   state.search.keyword;
+});
+
+// 获取当前选中分类的规格模板
+const currentCategoryTemplate = computed(() => {
+	if (!selectedCategory.value?.specTemplateId) return null;
+	return templates.value.find(t => t.id === selectedCategory.value?.specTemplateId);
+});
+
+// 可用于添加的筛选参数
+const availableParams = computed(() => {
+	if (!currentCategoryTemplate.value?.paramDefs) return [];
+	const activeKeys = new Set(state.activeFilters.map(f => f.key));
+	return currentCategoryTemplate.value.paramDefs.filter(p => !activeKeys.has(p.key) && String(p.label || '').trim());
+});
+
+// 从分类数据中获取有效的规格参数
+const getEffectiveSpecParams = (categoryId: string) => {
+	const cat = allCategories.value.find(c => c.id === categoryId);
+	if (!cat) return [];
+	let params: AccessoryParamDef[] = [];
+	if (cat.parentId) {
+		params = getEffectiveSpecParams(cat.parentId);
+	}
+	if (cat.specParams?.length) {
+		const currentKeys = new Set(cat.specParams.map(p => p.key));
+		params = [
+			...params.filter(p => !currentKeys.has(p.key)),
+			...cat.specParams
+		];
+	}
+	return params;
+};
+
 const pagedData = computed(() => {
 	const start = (state.table.pageNum - 1) * state.table.pageSize;
 	return state.table.data.slice(start, start + state.table.pageSize);
@@ -254,6 +375,7 @@ const pagedData = computed(() => {
 
 // 选择左侧分类后加载右侧列表
 const onCategorySelect = (cat: AccessoryCategoryTreeItem) => {
+	selectedCategoryId.value = cat.id;
 	selectedCategory.value = cat;
 	state.table.pageNum = 1;
 	loadAccessories();
@@ -267,10 +389,61 @@ const buildSearchPayload = () => {
 		minAvailableQty: state.search.minQty,
 		maxAvailableQty: state.search.maxQty,
 	};
+	// 添加规格筛选
+	if (state.activeFilters.length > 0) {
+		payload.specFilters = state.activeFilters.map(f => ({
+			key: f.key,
+			op: f.dataType === 'number' ? 'eq' : 'eq',
+			value: String(f.value)
+		}));
+	}
 	Object.keys(payload).forEach((k) => {
 		if (payload[k] === null || payload[k] === '' || payload[k] === undefined) delete payload[k];
+		if (Array.isArray(payload[k]) && payload[k].length === 0) delete payload[k];
 	});
 	return payload;
+};
+
+// 格式化筛选值显示
+const formatFilterValue = (filter: any) => {
+	if (filter.value === true) return '是';
+	if (filter.value === false) return '否';
+	return filter.value;
+};
+
+// 处理添加筛选
+const handleAddFilter = (param: AccessoryParamDef) => {
+	state.filterDialog.editingParam = param;
+	if (param.dataType === 'boolean') {
+		state.filterDialog.form.value = false;
+	} else if (param.dataType === 'number') {
+		state.filterDialog.form.value = null;
+	} else if (param.options?.length > 0) {
+		state.filterDialog.form.value = param.options[0];
+	} else {
+		state.filterDialog.form.value = '';
+	}
+	state.filterDialog.visible = true;
+};
+
+// 确认筛选
+const confirmFilter = () => {
+	if (!state.filterDialog.editingParam) return;
+	state.activeFilters.push({
+		key: state.filterDialog.editingParam.key,
+		label: state.filterDialog.editingParam.label,
+		value: state.filterDialog.form.value,
+		dataType: state.filterDialog.editingParam.dataType,
+		unit: state.filterDialog.editingParam.unit,
+		options: state.filterDialog.editingParam.options
+	});
+	state.filterDialog.visible = false;
+	state.filterDialog.editingParam = null;
+};
+
+// 删除筛选
+const removeFilter = (key: string) => {
+	state.activeFilters = state.activeFilters.filter(f => f.key !== key);
 };
 
 // 加载配件列表
@@ -304,8 +477,19 @@ const onReset = () => {
 	state.search.keyword = '';
 	state.search.minQty = null;
 	state.search.maxQty = null;
+	state.activeFilters = [];
 	state.table.pageNum = 1;
 	loadAccessories();
+};
+
+// 加载分类列表
+const loadCategories = async () => {
+	try {
+		const res = await getAccessoryCategories();
+		allCategories.value = Array.isArray(res) ? res : [];
+	} catch (error) {
+		console.error('加载分类失败', error);
+	}
 };
 
 // 切换每页条数
@@ -550,8 +734,24 @@ const onDelete = async (row: AccessoryItem) => {
 	} catch (e) {}
 };
 
+let categoriesLoaded = false;
+const initCategories = async () => {
+	await loadCategories();
+	categoriesLoaded = true;
+};
+
 // 初始化
 loadTemplates();
+initCategories();
+
+onMounted(() => {
+	// 检查路由参数中是否有 categoryId
+	const categoryId = route.query.categoryId;
+	if (categoryId && typeof categoryId === 'string') {
+		// 只需要设置 selectedCategoryId，树组件会自动处理选中和加载配件列表
+		selectedCategoryId.value = categoryId;
+	}
+});
 </script>
 <style lang="scss" scoped>
 .accessory-list-container .accessory-list-layout {
@@ -595,15 +795,39 @@ loadTemplates();
 	}
 }
 
-.accessory-toolbar {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	flex-wrap: wrap;
+.search-bar {
+	padding: 12px 16px;
 }
 
-.flex-fill {
+.search-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.filter-tags {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.filter-tags .el-tag {
+	margin-right: 0;
+}
+
+.spacer {
 	flex: 1;
+}
+
+.range-label {
+	font-size: 13px;
+	color: var(--el-text-color-secondary);
+}
+
+.range-sep {
+	color: var(--el-text-color-secondary);
 }
 
 .specs-cell {
@@ -611,10 +835,11 @@ loadTemplates();
 	flex-direction: column;
 	gap: 2px;
 	font-size: 12px;
+	color: var(--el-text-color-secondary);
 }
 
 .spec-item {
-	color: var(--el-text-color-regular);
+	white-space: nowrap;
 }
 
 .more-specs {
